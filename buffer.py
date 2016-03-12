@@ -16,23 +16,27 @@ class Buffer(object):
         self.input = input
         self.output = output
 
-    def read_string(self):
-        string = ''
+    def read_string16(self):
+        string = []
         while True:
             if len(self.input) < 2:
                 break
-
-            charBytes = self.input[:2]
-            self.input = self.input[2:]
-
-            charCode = from_bytes(charBytes)
-
+            charCode = self.read_short()
             if charCode == 0:
                 break
+            string.append(unichr(charCode))
+        return ''.join(string)
 
-            char = charBytes.decode('utf-16')#chr(charCode)
-            string += char
-        return string
+    def read_string8(self):
+        string = []
+        while True:
+            if len(self.input) < 1:
+                break
+            charCode = self.read_byte()
+            if charCode == 0:
+                break
+            string.append(chr(charCode))
+        return ''.join(string)
 
     def write_string(self, value):
         codes = [ord(char) for char in value]

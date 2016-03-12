@@ -63,22 +63,57 @@ class AgarClientProtocol(WebSocketClientProtocol):
     def parse_packet(self, opcode):
         b = self.buffer
         if opcode == 16:
-            pass
+            eats = []
+            for i in range(0, b.read_short()):
+                hunter, prey = b.read_int(), b.read_int()
+                eats.append((hunter, prey))
+            log.msg(("World Update|Eats", eats))
+            while True:
+                id = b.read_int()
+                if id == 0: break
+                x = b.read_int()
+                y = b.read_int()
+                size = b.read_short()
+                color = (b.read_byte(), b.read_byte(), b.read_byte())
+                flag = b.read_byte()
+                virus = (flag & 1)
+                agitated = (flag & 16)
+                if (flag & 2):
+                    skip = b.read_int()
+                    b.skip(skip)
+                elif (flag & 4):
+                    skin_url = b.read_string8()
+                else:
+                    skin_url = ''
+                name = b.read_string16()
+                log.msg(("World Update|Update", x, y, size, color, virus, agitated, skin_url, name))
+            removals = []
+            for i in range(0, b.read_int()):
+                removals.append(b.read_int())
+            log.msg(("World Update|Removals", removals))
         elif opcode == 18:
             pass
         elif opcode == 49:
             ladder = []
-            amount = b.read_int()
-            for i in range(0, amount):
-                player_id = b.read_int()
-                ladder.append((player_id,b.read_string()))
+            for i in range(0, b.read_int()):
+                ladder.append((b.read_int(),b.read_string16()))
+            log.msg(("FFA Leaderboard", ladder))
         elif opcode == 64:
-            min_x = b.read_double()
-            min_y = b.read_double()
-            max_x = b.read_double()
-            max_y = b.read_double()
+            left = b.read_double()
+            top = b.read_double()
+            right = b.read_double()
+            bottom = b.read_double()
+            log.msg(("Game size area", left, top, right, bottom))
+            if len(self.buffer.input) > 0:
+                game_mode = b.read_int()
+                log.msg(("Game mode", game_mode))
+                if len(self.buffer.input) > 0:
+                    server_string = b.read_string16()
+                    log.msg(("Server string", server_string))
         else:
-            print opcode
+            raise Exception("UNHANDLED OPCODE", opcode)
+        if len(self.buffer.input) > 0:
+            raise Exception('Leftover payload!')
 
     def onClose(self, wasClean, code, reason):
         log.msg('here 2')
