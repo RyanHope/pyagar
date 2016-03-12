@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import sys, os, platform
+os.environ['PYGLET_SHADOW_WINDOW']="0"
 
 import argparse
 
@@ -25,6 +26,11 @@ from autobahn.twisted.websocket import WebSocketClientProtocol, \
 import pprint
 
 import json
+
+import pyglet
+from cocos.director import director
+from cocos.layer import ColorLayer
+from scene import Scene
 
 from buffer import Buffer
 
@@ -67,7 +73,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
             for i in range(0, b.read_short()):
                 hunter, prey = b.read_int(), b.read_int()
                 eats.append((hunter, prey))
-            log.msg(("World Update|Eats", eats))
+            # log.msg(("World Update|Eats", eats))
             while True:
                 id = b.read_int()
                 if id == 0: break
@@ -86,30 +92,30 @@ class AgarClientProtocol(WebSocketClientProtocol):
                 else:
                     skin_url = ''
                 name = b.read_string16()
-                log.msg(("World Update|Update", x, y, size, color, virus, agitated, skin_url, name))
+                # log.msg(("World Update|Update", x, y, size, color, virus, agitated, skin_url, name))
             removals = []
             for i in range(0, b.read_int()):
                 removals.append(b.read_int())
-            log.msg(("World Update|Removals", removals))
+            # log.msg(("World Update|Removals", removals))
         elif opcode == 18:
             pass
         elif opcode == 49:
             ladder = []
             for i in range(0, b.read_int()):
                 ladder.append((b.read_int(),b.read_string16()))
-            log.msg(("FFA Leaderboard", ladder))
+            # log.msg(("FFA Leaderboard", ladder))
         elif opcode == 64:
             left = b.read_double()
             top = b.read_double()
             right = b.read_double()
             bottom = b.read_double()
-            log.msg(("Game size area", left, top, right, bottom))
+            # log.msg(("Game size area", left, top, right, bottom))
             if len(self.buffer.input) > 0:
                 game_mode = b.read_int()
-                log.msg(("Game mode", game_mode))
+                # log.msg(("Game mode", game_mode))
                 if len(self.buffer.input) > 0:
                     server_string = b.read_string16()
-                    log.msg(("Server string", server_string))
+                    # log.msg(("Server string", server_string))
         else:
             raise Exception("UNHANDLED OPCODE", opcode)
         if len(self.buffer.input) > 0:
@@ -154,6 +160,40 @@ class StringProducer(object):
     def stopProducing(self):
         pass
 
+class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
+
+    is_event_handler = True
+
+    def __init__(self):
+        screen = director.get_window_size()
+        print ("!!!!",screen)
+        super(AgarLayer, self).__init__(255, 255, 255, 255, screen[1], screen[1])
+
+class PyAgar(object):
+    title = "PyAgar"
+    def __init__(self):
+        director.set_show_FPS(False)
+        director.init(fullscreen=True, caption=self.title, visible=True, resizable=True)
+
+        self.gameScene = Scene()
+        self.gameLayer = AgarLayer()
+        self.gameScene.add(self.gameLayer)
+
+        director.replace(self.gameScene)
+
+        width = director.window.width
+        height = director.window.height
+        print (width, height)
+        print (director.get_window_size())
+        director.window.set_fullscreen(False)
+        director.window.set_size(int(width * .75), int(height * .75))
+        print (int(width * .75), int(height * .75))
+        print (director.get_window_size())
+        director.window.set_visible(True)
+        # director.window.set_fullscreen(True)
+
+
+
 if __name__ == '__main__':
 
     NAME = 'PyAgar'
@@ -164,6 +204,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     log.startLogging(sys.stdout)
+
+    game = PyAgar()
 
     agent = Agent(reactor)
 
