@@ -26,6 +26,8 @@ import pprint
 
 import json
 
+from buffer import Buffer
+
 def cbBody(body, callback):
     callback(body)
 
@@ -46,87 +48,37 @@ class AgarClientProtocol(WebSocketClientProtocol):
 
     def onConnect(self, response):
         log.msg("Connected to Server: {}".format(response.peer))
+        self.buffer = Buffer()
 
     def onOpen(self):
         self.sendMessage(struct.pack("<BI",254,5), isBinary=True)
         self.sendMessage(struct.pack("<BI",255,2200049715), isBinary=True)
         self.sendMessage(struct.pack("<B%ds" % len(self.token),80,self.token), isBinary=True)
 
-    def read_string(self, input):
-        string = ''
-        while True:
-            if len(input) < 2:
-                break
-
-            charBytes = input[:2]
-            input = input[2:]
-
-            charCode = int.from_bytes(charBytes, byteorder='little')
-
-            if charCode == 0:
-                break
-
-            char = chr(charCode)
-            string += char
-        return string
-
     def onMessage(self, payload, isBinary):
-        opcode = struct.unpack("<B",payload[0])[0]
-        datalen = len(payload[1:])
-        print (opcode, datalen)
-        if opcode == 18: # Reset all cells
-            pass
-        elif opcode == 64: # Game area size
-            min_x, min_y, max_x, max_y = struct.unpack("<dddd", payload[1:33])
-            log.msg((min_x, min_y, max_x, max_y))
-            if datalen > 35:
-                game_mode = struct.unpack("<I", payload[33:37])[0]
-                log.msg(game_mode)
-            if datalen > 36:
-                offset = datalen-36
-                server_version = struct.unpack("<%ds" % offset, payload[37:(37+offset)])[0].decode('utf-16')
-                log.msg(server_version)
-        elif opcode == 49: # FFA Leaderboard
-            offset = 1
-            cnt = struct.unpack("<I", payload[offset:(offset+4)])[0]
-            offset += 4
-            leaders = []
-            for i in xrange(cnt):
-                id = struct.unpack("<I", payload[offset:(offset+4)])[0]
-                offset += 4
-                print("leaders",i,id)
-        elif opcode == 16: # World update
-            pass
-            # offset = 1
-            # cnt_eats = struct.unpack("<H", payload[offset:(offset+2)])[0]
-            # log.msg(cnt_eats)
-            # offset += 2
-            # eats = []
-            # for _ in xrange(cnt_eats):
-            #     eats.append((struct.unpack("<II", payload[offset:(offset+8)])))
-            #     offset+=8
-            # print eats
-            # updates = []
-            # while True:
-            #     player_id = struct.unpack("<I", payload[offset:(offset+4)])[0]
-            #     offset += 4
-            #     if player_id !=0:
-            #         x, y, size, r, g, b, flags = struct.unpack("<IIHBBBB", payload[offset:(offset+14)])
-            #         print (x, y, size, r, g, b, flags)
-            #         offset += 14
-            #         if flags & 0x02:
-            #             skip4 = struct.unpack("<I", payload[offset:(offset+4)])[0]
-            #             print ("skip4",skip4)
-            #             offset = offset + skip4 + 4
-            #         #     offset += 4
-            #         # elif flags & 0x04:
-            #         #     offset += 8
-            #         # elif flags & 0x08:
-            #         #     offset += 16
-            #         name = struct.unpack("<32s", payload[offset:(offset+32)])[0]
-            #         print name.decode('utf-16')
+        self.buffer.fill(payload)
+        packet = self.buffer.read_byte()
+        self.parse_packet(packet)
 
-
+    def parse_packet(self, opcode):
+        b = self.buffer
+        if opcode == 16:
+            pass
+        elif opcode == 18:
+            pass
+        elif opcode == 49:
+            ladder = []
+            amount = b.read_int()
+            for i in range(0, amount):
+                player_id = b.read_int()
+                ladder.append((player_id,b.read_string()))
+        elif opcode == 64:
+            min_x = b.read_double()
+            min_y = b.read_double()
+            max_x = b.read_double()
+            max_y = b.read_double()
+        else:
+            print opcode
 
     def onClose(self, wasClean, code, reason):
         log.msg('here 2')
