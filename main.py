@@ -31,12 +31,15 @@ import json
 
 import pyglet
 from pyglet.window import key
+from pyglet import font, text
+
 from cocos.director import director
 from cocos.layer import ColorLayer
 from cocos.text import Label
+from cocos.batch import BatchNode
 
 from scene import Scene
-from primitives import Circle
+from primitives import Circle, Line
 from handler import Handler
 
 from vec import Vec
@@ -168,13 +171,21 @@ class AgarClientProtocol(WebSocketClientProtocol):
                 self.player.cells_changed()
             circles = []
             self.game.gameLayer.recalculate()
+            names_batch = BatchNode()
             for cell in sorted(self.player.world.cells.values(), reverse=True):
                 pos = self.game.gameLayer.world_to_screen_pos(cell.pos)
                 w = self.game.gameLayer.world_to_screen_size(cell.size)
                 #print((cell.pos.x,cell.pos.y),(pos.x,pos.y),cell.size,w)
                 circles.append(Circle(pos.x, pos.y, width=w, color=(cell.color[0],cell.color[1],cell.color[2],1)))
+                text.Label(cell.name, font_size=14, x=pos.x, y=pos.y, color=(32, 32, 32, 255),
+                       anchor_x='center', anchor_y='center', batch=names_batch.batch)
+            if self.game.gameLayer.names_batch in self.game.gameLayer.get_children():
+                self.game.gameLayer.remove(self.game.gameLayer.names_batch)
+            self.game.gameLayer.names_batch = names_batch
+            self.game.gameLayer.add(self.game.gameLayer.names_batch)
             self.game.gameLayer.circles = circles
             self.game.gameLayer.send_mouse()
+            # self.game.gameLayer.init()
         elif opcode == 18:
             #self.subscriber.on_clear_cells()
             self.player.world.cells.clear()
@@ -285,11 +296,26 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
         self.world_center = Vec(0, 0)
         self.mouse_pos = Vec(0, 0)
         self.movement_delta = Vec()
+        self.names_batch = BatchNode()
+        # self.border = []
+
+    # def init(self):
+    #     wl, wt = self.world_to_screen_pos(self.proto.player.world.top_left)
+    #     wr, wb = self.world_to_screen_pos(self.proto.player.world.bottom_right)
+    #     print(wl,wt,wr,wb)
+    #     border = []
+    #     border.append(Line((wl,wt),(wr,wt),stroke=5))
+    #     border.append(Line((wl,wb),(wr,wb),stroke=5))
+    #     border.append(Line((wl,wt),(wl,wb),stroke=5))
+    #     border.append(Line((wr,wt),(wr,wb),stroke=5))
+    #     self.border = border
 
     def draw(self):
-       super(AgarLayer, self).draw()
-       for c in self.circles:
-           c.render()
+        super(AgarLayer, self).draw()
+        for c in self.circles:
+            c.render()
+        # for b in self.border:
+        #     b.render()
 
     def recalculate(self):
         #alloc = self.drawing_area.get_allocation()
@@ -371,9 +397,9 @@ class PyAgar(object):
 
         director.replace(self.gameScene)
 
+        director.window.set_fullscreen(True)
+        director.window.set_fullscreen(False)
         director.window.set_visible(True)
-        # director.window.set_fullscreen(True)
-        # director.window.set_fullscreen(False)
 
 if __name__ == '__main__':
 
