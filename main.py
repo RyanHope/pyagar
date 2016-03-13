@@ -33,6 +33,7 @@ import pyglet
 from pyglet.window import key
 from cocos.director import director
 from cocos.layer import ColorLayer
+from cocos.text import Label
 
 from scene import Scene
 from primitives import Circle
@@ -89,6 +90,10 @@ class AgarClientProtocol(WebSocketClientProtocol):
         self.player.world.reset()
         self.player.nick = "PuffTheMagic"
 
+        self.send_respawn()
+
+    def send_respawn(self):
+        b = self.buffer
         b.write_byte(0)
         b.write_string(self.player.nick)
         b.flush_protocol(self)
@@ -99,6 +104,16 @@ class AgarClientProtocol(WebSocketClientProtocol):
         b.write_int(x)
         b.write_int(y)
         b.write_uint(cid)
+        b.flush_protocol(self)
+
+    def send_split(self):
+        b = self.buffer
+        b.write_byte(17)
+        b.flush_protocol(self)
+
+    def send_shoot(self):
+        b = self.buffer
+        b.write_byte(21)
         b.flush_protocol(self)
 
     def onMessage(self, payload, isBinary):
@@ -184,6 +199,16 @@ class AgarClientProtocol(WebSocketClientProtocol):
                 leaderboard_names.append((id, name))
             #self.subscriber.on_leaderboard_names(leaderboard=leaderboard_names)
             self.player.world.leaderboard_names = leaderboard_names
+            # self.game.gameLayer.leaders = []
+            # offset = 0
+            # for l in self.game.gameLayer.leaders:
+            #     self.game.gameLayer.remove(l)
+            # for id,name in leaderboard_names:
+            #     self.game.gameLayer.leaders.append(Label(name, position=(800,800+offset), font_name='', font_size=14, color=(0, 0, 0, 255), anchor_x='right', anchor_y='center'))
+            #     offset -= 25
+            # for l in self.game.gameLayer.leaders:
+            #     self.game.gameLayer.add(l)
+
         elif opcode == 64:
             left = b.read_double()
             top = b.read_double()
@@ -253,6 +278,7 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
         super(AgarLayer, self).__init__(255, 255, 255, 255, self.screen[0], self.screen[1])
         #self.position = ((self.screen[0]-self.screen[1])/2,0)
         self.circles = []
+        # self.leaders = []
         self.win_size = Vec(self.screen[0], self.screen[1])
         self.screen_center = self.win_size / 2
         self.screen_scale = 1
@@ -298,11 +324,6 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
         return (screen_pos - self.screen_center) \
             .idiv(self.screen_scale).iadd(self.world_center)
 
-    def on_key_press( self, symbol, modifiers):
-        if symbol == key.Q and (modifiers & key.MOD_ACCEL):
-            reactor.callFromThread(reactor.stop)
-            return True
-
     def on_mouse_motion(self, x, y, dx, dy):
         x, y = director.get_virtual_coordinates(x, y)
         self.mouse_pos = Vec(x, y)
@@ -313,6 +334,20 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
     def send_mouse(self):
         target = self.proto.player.center + self.movement_delta
         self.proto.send_target(*target)
+
+    def on_key_press(self, symbol, modifiers):
+        if symbol == key.Q and (modifiers & key.MOD_ACCEL):
+            reactor.callFromThread(reactor.stop)
+            return True
+        elif symbol == key.W :
+            self.proto.send_shoot()
+            return True
+        elif symbol == key.R :
+            self.proto.send_respawn()
+            return True
+        elif symbol == key.SPACE:
+            self.proto.send_split()
+            return True
 
 class PyAgar(object):
     title = "PyAgar"
