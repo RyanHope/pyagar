@@ -72,7 +72,6 @@ class AgarClientProtocol(WebSocketClientProtocol):
         self.ingame = False
 
     def onConnect(self, response):
-        log.msg("Connected to Server: {}".format(response.peer))
         self.buffer = Buffer()
 
     def onOpen(self):
@@ -125,9 +124,14 @@ class AgarClientProtocol(WebSocketClientProtocol):
         packet = self.buffer.read_byte()
         self.parse_packet(packet)
 
+    def setInGame(self, opcode):
+        if opcode in [16,17,32,49,50,64]:
+            self.ingame =True
+
     def parse_packet(self, opcode):
         #print ("===========",opcode,"===========")
         b = self.buffer
+        self.setInGame(opcode)
         if opcode == 16:
             for i in range(0, b.read_short()):
                 hunter, prey = b.read_uint(), b.read_uint()
@@ -271,7 +275,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
             raise Exception('LEFTOVER PAYLOAD!')
 
     def onClose(self, wasClean, code, reason):
-        pass
+        self.ingame = False
 
 class AgarClientFactory(WebSocketClientFactory):
 
@@ -332,6 +336,7 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
         self.names_batch = BatchNode()
         self.leaders_batch = BatchNode()
         self.scoreSprite = None
+        self.proto = None
         # self.border = []
 
     # def init(self):
@@ -386,11 +391,12 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
             .idiv(self.screen_scale).iadd(self.world_center)
 
     def on_mouse_motion(self, x, y, dx, dy):
-        x, y = director.get_virtual_coordinates(x, y)
-        self.mouse_pos = Vec(x, y)
-        pos_world = self.screen_to_world_pos(self.mouse_pos)
-        self.movement_delta = pos_world - self.proto.player.center
-        self.send_mouse()
+        if self.proto and self.proto.ingame:
+            x, y = director.get_virtual_coordinates(x, y)
+            self.mouse_pos = Vec(x, y)
+            pos_world = self.screen_to_world_pos(self.mouse_pos)
+            self.movement_delta = pos_world - self.proto.player.center
+            self.send_mouse()
 
     def send_mouse(self):
         target = self.proto.player.center + self.movement_delta
@@ -400,13 +406,13 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
         if symbol == key.Q and (modifiers & key.MOD_ACCEL):
             reactor.callFromThread(reactor.stop)
             return True
-        elif symbol == key.W :
+        elif symbol == key.W and self.proto and self.proto.ingame:
             self.proto.send_shoot()
             return True
-        elif symbol == key.R :
+        elif symbol == key.R and self.proto and self.proto.ingame:
             self.proto.send_respawn()
             return True
-        elif symbol == key.SPACE:
+        elif symbol == key.SPACE and self.proto and self.proto.ingame:
             self.proto.send_split()
             return True
 
@@ -462,7 +468,7 @@ if __name__ == '__main__':
         d.addBoth(cbShutdown)
 
     else:
-        d = agent.request('POST', 'http://m.agar.io/', Headers({'User-Agent': [NAME]}), StringProducer('EU-London'))
+        d = agent.request('POST', 'http://m.agar.io/', Headers({'User-Agent': [NAME]}), StringProducer('US-Atlanta'))
         d.addCallback(cbResponse, lambda x: agarWS(x, game), True)
 
     reactor.run()
