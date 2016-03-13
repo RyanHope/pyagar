@@ -74,11 +74,11 @@ class AgarClientProtocol(WebSocketClientProtocol):
         b = self.buffer
 
         b.write_byte(254)
-        b.write_int(5)
+        b.write_uint(5)
         b.flush_protocol(self)
 
         b.write_byte(255)
-        b.write_int(2200049715)
+        b.write_uint(2200049715)
         b.flush_protocol(self)
 
         b.write_byte(80)
@@ -91,6 +91,14 @@ class AgarClientProtocol(WebSocketClientProtocol):
 
         b.write_byte(0)
         b.write_string(self.player.nick)
+        b.flush_protocol(self)
+
+    def send_target(self, x, y, cid=0):
+        b = self.buffer
+        b.write_byte(16)
+        b.write_int(x)
+        b.write_int(y)
+        b.write_uint(cid)
         b.flush_protocol(self)
 
     def onMessage(self, payload, isBinary):
@@ -151,6 +159,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
                 #print((cell.pos.x,cell.pos.y),(pos.x,pos.y),cell.size,w)
                 circles.append(Circle(pos.x, pos.y, width=w, color=(cell.color[0],cell.color[1],cell.color[2],1)))
             self.game.gameLayer.circles = circles
+            self.game.gameLayer.send_mouse()
         elif opcode == 18:
             #self.subscriber.on_clear_cells()
             self.player.world.cells.clear()
@@ -203,7 +212,7 @@ class AgarClientFactory(WebSocketClientFactory):
         proto = AgarClientProtocol()
         proto.token = self.token
         proto.game = self.game
-        self.game.gameLayer.player = proto.player
+        self.game.gameLayer.proto = proto
         proto.factory = self
         return proto
 
@@ -248,6 +257,8 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
         self.screen_center = self.win_size / 2
         self.screen_scale = 1
         self.world_center = Vec(0, 0)
+        self.mouse_pos = Vec(0, 0)
+        self.movement_delta = Vec()
 
     def draw(self):
        super(AgarLayer, self).draw()
@@ -258,12 +269,12 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
         #alloc = self.drawing_area.get_allocation()
         #self.win_size.set(alloc.width, alloc.height)
         #self.screen_center = self.win_size / 2
-        if self.player:  # any client is focused
+        if self.proto.player:  # any client is focused
             #print("HERE 1")
             window_scale = max(self.win_size.x / self.screen[0], self.win_size.y / self.screen[1])
-            self.screen_scale = self.player.scale * window_scale
-            self.world_center = self.player.center
-            self.world = self.player.world
+            self.screen_scale = self.proto.player.scale * window_scale
+            self.world_center = self.proto.player.center
+            self.world = self.proto.player.world
             #print (self.world.size.x,self.world.size.y,self.world_center.x,self.world_center.y)
         elif self.world.size:
             #print("HERE 2")
@@ -283,10 +294,25 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
     def world_to_screen_size(self, world_size):
         return world_size * self.screen_scale
 
+    def screen_to_world_pos(self, screen_pos):
+        return (screen_pos - self.screen_center) \
+            .idiv(self.screen_scale).iadd(self.world_center)
+
     def on_key_press( self, symbol, modifiers):
         if symbol == key.Q and (modifiers & key.MOD_ACCEL):
             reactor.callFromThread(reactor.stop)
             return True
+
+    def on_mouse_motion(self, x, y, dx, dy):
+        x, y = director.get_virtual_coordinates(x, y)
+        self.mouse_pos = Vec(x, y)
+        pos_world = self.screen_to_world_pos(self.mouse_pos)
+        self.movement_delta = pos_world - self.proto.player.center
+        self.send_mouse()
+
+    def send_mouse(self):
+        target = self.proto.player.center + self.movement_delta
+        self.proto.send_target(*target)
 
 class PyAgar(object):
     title = "PyAgar"

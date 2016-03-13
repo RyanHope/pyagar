@@ -60,6 +60,9 @@ class Buffer(object):
         return value
 
     def write_int(self, value):
+        self.output += pack('<i', value)
+
+    def write_uint(self, value):
         self.output += pack('<I', value)
 
     def read_float(self):
