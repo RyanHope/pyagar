@@ -285,12 +285,14 @@ class PyAgar(object):
     title = "PyAgar"
     def __init__(self):
         director.set_show_FPS(False)
-        director.init(fullscreen=True, caption=self.title, visible=True, resizable=True)
+        w = director.init(fullscreen=True, caption=self.title, visible=True, resizable=True)
 
         width = director.window.width
         height = director.window.height
+        wnew, hnew = int(width * .75), int(height * .75)
         director.window.set_fullscreen(False)
-        director.window.set_size(int(width * .75), int(height * .75))
+        director.window.set_size(wnew, hnew)
+        w.set_location((width-wnew)/2, (height-hnew)/2)
 
         self.gameScene = Scene()
         self.gameLayer = AgarLayer()
@@ -299,8 +301,8 @@ class PyAgar(object):
         director.replace(self.gameScene)
 
         director.window.set_visible(True)
-        director.window.set_fullscreen(True)
-        director.window.set_fullscreen(False)
+        # director.window.set_fullscreen(True)
+        # director.window.set_fullscreen(False)
 
 if __name__ == '__main__':
 
