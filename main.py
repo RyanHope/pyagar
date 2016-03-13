@@ -192,6 +192,15 @@ class AgarClientProtocol(WebSocketClientProtocol):
                 sprites.append(s)
                 text.Label(cell.name, font_size=14, font_name='DejaVu Sans', x=pos.x, y=pos.y, color=(32, 32, 32, 255),
                        anchor_x='center', anchor_y='center', batch=names_batch.batch)
+            maxmass = self.game.gameLayer.score
+            for id in self.player.own_ids:
+                if self.player.world.cells[id].mass > maxmass:
+                    maxmass = self.player.world.cells[id].mass
+            self.game.gameLayer.score = maxmass
+            if self.game.gameLayer.scoreSprite in self.game.gameLayer.get_children():
+                self.game.gameLayer.remove(self.game.gameLayer.scoreSprite)
+            self.game.gameLayer.scoreSprite = Label("%d" % int(self.game.gameLayer.score), position=(int(self.game.gameLayer.screen[0]*.01), int(self.game.gameLayer.screen[1]*.01)), font_name='DejaVu Sans', font_size=18, bold=True, color=(0, 0, 0, 255), anchor_x='left', anchor_y='bottom')
+            self.game.gameLayer.add(self.game.gameLayer.scoreSprite)
             self.game.gameLayer.sprites = sprites
             self.game.gameLayer.names_batch = names_batch
             self.game.gameLayer.add(self.game.gameLayer.names_batch)
@@ -214,6 +223,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
             # self.world.cells[cid].name = self.player.nick
             self.player.own_ids.add(id)
             self.player.cells_changed()
+            self.game.gameLayer.score = 0
             #self.subscriber.on_own_id(cid=id)
         elif opcode == 49:
             leaders_batch = BatchNode()
@@ -310,6 +320,7 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
         #self.position = ((self.screen[0]-self.screen[1])/2,0)
         self.circles = []
         self.sprites = []
+        self.score = 0
         # self.leaders = []
         self.win_size = Vec(self.screen[0], self.screen[1])
         self.screen_center = self.win_size / 2
@@ -319,6 +330,7 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
         self.movement_delta = Vec()
         self.names_batch = BatchNode()
         self.leaders_batch = BatchNode()
+        self.scoreSprite = None
         # self.border = []
 
     # def init(self):
