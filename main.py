@@ -190,7 +190,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
                 s = Sprite(resource.image(img),position=pos,color=cell.color2,scale=w/425.)
                 self.game.gameLayer.add(s)
                 sprites.append(s)
-                text.Label(cell.name, font_size=14, x=pos.x, y=pos.y, color=(32, 32, 32, 255),
+                text.Label(cell.name, font_size=14, font_name='DejaVu Sans', x=pos.x, y=pos.y, color=(32, 32, 32, 255),
                        anchor_x='center', anchor_y='center', batch=names_batch.batch)
             self.game.gameLayer.sprites = sprites
             self.game.gameLayer.names_batch = names_batch
@@ -221,7 +221,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
             for i in range(0, b.read_uint()):
                 id, name = b.read_uint(), b.read_string16()
                 diff = self.game.gameLayer.screen[0] - int(self.game.gameLayer.screen[0]*.99)
-                text.Label("%d. %s" % (i+1,name), font_size=14, x=self.game.gameLayer.screen[0]-diff, y=self.game.gameLayer.screen[1]-diff-i*17, color=(32, 32, 32, 255),
+                text.Label("%d. %s" % (i+1,name), font_size=14, font_name='DejaVu Sans', x=self.game.gameLayer.screen[0]-diff, y=self.game.gameLayer.screen[1]-diff-i*17, color=(32, 32, 32, 255),
                        anchor_x='right', anchor_y='center', batch=leaders_batch.batch)
                 leaderboard_names.append((id, name))
             if self.game.gameLayer.leaders_batch in self.game.gameLayer.get_children():
@@ -403,6 +403,7 @@ class PyAgar(object):
 
         pyglet.resource.path.append('resources')
         pyglet.resource.reindex()
+        pyglet.resource.add_font('DejaVuSans.ttf')
 
         director.set_show_FPS(False)
         w = director.init(fullscreen=True, caption=self.title, visible=True, resizable=True)
