@@ -98,7 +98,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
     def send_respawn(self):
         b = self.buffer
         b.write_byte(0)
-        b.write_string(self.player.nick)
+        b.write_string(self.player.nick.encode('utf-16'))
         b.flush_protocol(self)
 
     def send_target(self, x, y, cid=0):
