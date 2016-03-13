@@ -197,21 +197,6 @@ class AgarClientProtocol(WebSocketClientProtocol):
                 self.game.gameLayer.remove(self.game.gameLayer.names_batch)
             self.game.gameLayer.names_batch = names_batch
             self.game.gameLayer.add(self.game.gameLayer.names_batch)
-
-            for cell in self.player.world.cells.values():
-                pos = self.game.gameLayer.world_to_screen_pos(cell.pos)
-            #     w = self.game.gameLayer.world_to_screen_size(cell.size)*2
-            #     #circles.append(Circle(pos.x, pos.y, width=w, color=(cell.color[0],cell.color[1],cell.color[2],1)))
-            #     img = 'cell.png'
-            #     if cell.is_virus:
-            #         img = 'virus.png'
-            #     elif cell.is_agitated:
-            #         img = 'agitated.png'
-            #     s = Sprite(resource.image(img),position=pos,color=cell.color2,scale=w/425.)
-            #     self.game.gameLayer.add(s)
-            #     sprites.append(s)
-            #     text.Label(cell.name, font_size=14, font_name='DejaVu Sans', x=pos.x, y=pos.y, color=(32, 32, 32, 255),
-            #            anchor_x='center', anchor_y='center', batch=names_batch.batch)
             maxmass = self.game.gameLayer.score
             for id in self.player.own_ids:
                 if self.player.world.cells[id].mass > maxmass:
@@ -222,12 +207,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
             diff = int(self.game.gameLayer.screen[0]*.01)
             self.game.gameLayer.scoreSprite = Label("%d" % int(self.game.gameLayer.score), position=(diff, self.game.gameLayer.screen[1]-diff), font_name='DejaVu Sans', font_size=18, bold=True, color=(0, 0, 0, 128), anchor_x='left', anchor_y='center')
             self.game.gameLayer.add(self.game.gameLayer.scoreSprite)
-            # self.game.gameLayer.sprites = sprites
-            # self.game.gameLayer.names_batch = names_batch
-            # self.game.gameLayer.add(self.game.gameLayer.names_batch)
-            #self.game.gameLayer.circles = circles
             self.game.gameLayer.send_mouse()
-            # self.game.gameLayer.init()
         elif opcode == 18:
             #self.subscriber.on_clear_cells()
             self.player.world.cells.clear()
@@ -266,15 +246,6 @@ class AgarClientProtocol(WebSocketClientProtocol):
             self.game.gameLayer.add(self.game.gameLayer.leaders_batch)
             #self.subscriber.on_leaderboard_names(leaderboard=leaderboard_names)
             self.player.world.leaderboard_names = leaderboard_names
-            # self.game.gameLayer.leaders = []
-            # offset = 0
-            # for l in self.game.gameLayer.leaders:
-            #     self.game.gameLayer.remove(l)
-            # for id,name in leaderboard_names:
-            #     self.game.gameLayer.leaders.append(Label(name, position=(800,800+offset), font_name='', font_size=14, color=(0, 0, 0, 255), anchor_x='right', anchor_y='center'))
-            #     offset -= 25
-            # for l in self.game.gameLayer.leaders:
-            #     self.game.gameLayer.add(l)
 
         elif opcode == 64:
             left = b.read_double()
@@ -284,8 +255,6 @@ class AgarClientProtocol(WebSocketClientProtocol):
             #self.subscriber.on_world_rect(left=left, top=top, right=right, bottom=bottom)
             self.player.world.top_left = Vec(top, left)
             self.player.world.bottom_right = Vec(bottom, right)
-            #print ("#################",self.player.world.top_left.x,self.player.world.top_left.y)
-            #print ("#################",self.player.world.bottom_right.x,self.player.world.bottom_right.y)
             if len(self.buffer.input) > 0:
                 game_mode = b.read_uint()
                 server_string = b.read_string16()
