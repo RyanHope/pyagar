@@ -185,21 +185,21 @@ class AgarClientProtocol(WebSocketClientProtocol):
             if self.player.is_alive:
                 self.player.cells_changed()
             self.game.gameLayer.recalculate()
+            names_batch = BatchNode()
             for id in self.player.world.cells:
                 pos = self.game.gameLayer.world_to_screen_pos(self.player.world.cells[id].pos)
                 w = self.game.gameLayer.world_to_screen_size(self.player.world.cells[id].size)*2
                 self.game.gameLayer.sprites[id].color = self.player.world.cells[id].color2
                 self.game.gameLayer.sprites[id]._set_position(pos)
                 self.game.gameLayer.sprites[id]._set_scale(w/425.)
-            # if self.game.gameLayer.names_batch in self.game.gameLayer.get_children():
-            #     self.game.gameLayer.remove(self.game.gameLayer.names_batch)
-            # for s in self.game.gameLayer.sprites:
-            #     if s in self.game.gameLayer.get_children():
-            #         self.game.gameLayer.remove(s)
-            # names_batch = BatchNode()
-            # sprites = []
-            # for cell in sorted(self.player.world.cells.values(), reverse=True):
-            #     pos = self.game.gameLayer.world_to_screen_pos(cell.pos)
+                text.Label(self.player.world.cells[id].name, font_size=14, font_name='DejaVu Sans', x=pos.x, y=pos.y, color=(32, 32, 32, 255), anchor_x='center', anchor_y='center', batch=names_batch.batch)
+            if self.game.gameLayer.names_batch in self.game.gameLayer.get_children():
+                self.game.gameLayer.remove(self.game.gameLayer.names_batch)
+            self.game.gameLayer.names_batch = names_batch
+            self.game.gameLayer.add(self.game.gameLayer.names_batch)
+
+            for cell in self.player.world.cells.values():
+                pos = self.game.gameLayer.world_to_screen_pos(cell.pos)
             #     w = self.game.gameLayer.world_to_screen_size(cell.size)*2
             #     #circles.append(Circle(pos.x, pos.y, width=w, color=(cell.color[0],cell.color[1],cell.color[2],1)))
             #     img = 'cell.png'
