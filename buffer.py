@@ -1,14 +1,6 @@
-from struct import pack, unpack
+__author__ = 'RAEON'
 
-def from_bytes (data, big_endian = False):
-    if isinstance(data, str):
-        data = bytearray(data)
-    if big_endian:
-        data = reversed(data)
-    num = 0
-    for offset, byte in enumerate(data):
-        num += byte << (offset * 8)
-    return num
+from struct import pack, unpack
 
 class Buffer(object):
 
@@ -39,8 +31,7 @@ class Buffer(object):
         return ''.join(string)
 
     def write_string(self, value):
-        codes = [ord(char) for char in value]
-        self.output += pack('<B ' + str(len(codes)) + 'H', 0, *codes)
+        self.output += pack('<B%iB' % (len(value)-1), *map(ord, value))
 
     def read_byte(self):
         value, = unpack('<B', self.input[:1])
@@ -58,8 +49,13 @@ class Buffer(object):
     def write_short(self, value):
         self.output += pack('<H', value)
 
-    def read_int(self):
+    def read_uint(self):
         value, = unpack('<I', self.input[:4])
+        self.input = self.input[4:]
+        return value
+
+    def read_int(self):
+        value, = unpack('<i', self.input[:4])
         self.input = self.input[4:]
         return value
 
@@ -90,15 +86,12 @@ class Buffer(object):
 
     def flush(self):
         tmp = self.output
-        self.output = []
-        return tmp
+        self.output = bytearray()
+        return bytes(tmp)
 
-    def fill_session(self, session):
-        self.input = session.read()
-
-    def flush_session(self, session):
-        session.write(self.output)
-        self.output = []
+    def flush_protocol(self, protocol):
+        protocol.sendMessage(bytes(self.output), isBinary=True)
+        self.output = bytearray()
 
     def input_size(self):
         return len(self.input)
