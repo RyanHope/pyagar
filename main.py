@@ -166,9 +166,9 @@ class AgarClientProtocol(WebSocketClientProtocol):
                 if id not in self.player.world.cells:
                     self.player.world.create_cell(id)
                     img = 'cell.png'
-                    if self.player.world.cells[id].is_virus:
+                    if virus:
                         img = 'virus.png'
-                    elif self.player.world.cells[id].is_agitated:
+                    elif agitated:
                         img = 'agitated.png'
                     self.game.gameLayer.sprites[id] = Sprite(resource.image(img))
                     self.game.gameLayer.sprite_batch.add(self.game.gameLayer.sprites[id])
@@ -491,7 +491,7 @@ if __name__ == '__main__':
         d.addBoth(cbShutdown)
 
     else:
-        d = agent.request('POST', 'http://m.agar.io/', Headers({'User-Agent': [NAME]}), StringProducer('US-Atlanta'))
+        d = agent.request('POST', 'http://m.agar.io/', Headers({'User-Agent': [NAME]}), StringProducer('US-Atlanta:party'))
         d.addCallback(cbResponse, lambda x: agarWS(x, game), True)
 
     reactor.run()
