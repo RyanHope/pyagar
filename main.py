@@ -180,7 +180,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
             sprites = []
             for cell in sorted(self.player.world.cells.values(), reverse=True):
                 pos = self.game.gameLayer.world_to_screen_pos(cell.pos)
-                w = self.game.gameLayer.world_to_screen_size(cell.size)
+                w = self.game.gameLayer.world_to_screen_size(cell.size)*2
                 #circles.append(Circle(pos.x, pos.y, width=w, color=(cell.color[0],cell.color[1],cell.color[2],1)))
                 img = 'cell.png'
                 if cell.is_virus:
