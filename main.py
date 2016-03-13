@@ -142,6 +142,8 @@ class AgarClientProtocol(WebSocketClientProtocol):
                 if prey in self.player.world.cells:
                     #self.subscriber.on_cell_removed(cid=prey)
                     del self.player.world.cells[prey]
+                    self.game.gameLayer.remove(self.game.gameLayer.sprites[prey])
+                    del self.game.gameLayer.sprites[prey]
             while True:
                 id = b.read_uint()
                 if id == 0: break
@@ -163,39 +165,53 @@ class AgarClientProtocol(WebSocketClientProtocol):
                 # self.subscriber.on_cell_info(cid=id, x=cx, y=cy, size=csize, name=cname, color=color, is_virus=is_virus, is_agitated=is_agitated)
                 if id not in self.player.world.cells:
                     self.player.world.create_cell(id)
+                    img = 'cell.png'
+                    if self.player.world.cells[id].is_virus:
+                        img = 'virus.png'
+                    elif self.player.world.cells[id].is_agitated:
+                        img = 'agitated.png'
+                    self.game.gameLayer.sprites[id] = Sprite(resource.image(img))
+                    self.game.gameLayer.add(self.game.gameLayer.sprites[id])
                 self.player.world.cells[id].update(cid=id, x=x, y=y, size=size, name=name, color=color, is_virus=virus, is_agitated=agitated)
-            cells = self.player.world.cells
             for i in range(0, b.read_uint()):
                 id = b.read_uint()
-                if id in cells:
+                if id in self.player.world.cells:
                     #self.subscriber.on_cell_removed(cid=id)
-                    del cells[id]
+                    del self.player.world.cells[id]
                     if id in self.player.own_ids:
                         self.player.own_ids.remove(id)
+                    self.game.gameLayer.remove(self.game.gameLayer.sprites[id])
+                    del self.game.gameLayer.sprites[id]
             if self.player.is_alive:
                 self.player.cells_changed()
             self.game.gameLayer.recalculate()
-            if self.game.gameLayer.names_batch in self.game.gameLayer.get_children():
-                self.game.gameLayer.remove(self.game.gameLayer.names_batch)
-            for s in self.game.gameLayer.sprites:
-                if s in self.game.gameLayer.get_children():
-                    self.game.gameLayer.remove(s)
-            names_batch = BatchNode()
-            sprites = []
-            for cell in sorted(self.player.world.cells.values(), reverse=True):
-                pos = self.game.gameLayer.world_to_screen_pos(cell.pos)
-                w = self.game.gameLayer.world_to_screen_size(cell.size)*2
-                #circles.append(Circle(pos.x, pos.y, width=w, color=(cell.color[0],cell.color[1],cell.color[2],1)))
-                img = 'cell.png'
-                if cell.is_virus:
-                    img = 'virus.png'
-                elif cell.is_agitated:
-                    img = 'agitated.png'
-                s = Sprite(resource.image(img),position=pos,color=cell.color2,scale=w/425.)
-                self.game.gameLayer.add(s)
-                sprites.append(s)
-                text.Label(cell.name, font_size=14, font_name='DejaVu Sans', x=pos.x, y=pos.y, color=(32, 32, 32, 255),
-                       anchor_x='center', anchor_y='center', batch=names_batch.batch)
+            for id in self.player.world.cells:
+                pos = self.game.gameLayer.world_to_screen_pos(self.player.world.cells[id].pos)
+                w = self.game.gameLayer.world_to_screen_size(self.player.world.cells[id].size)*2
+                self.game.gameLayer.sprites[id].color = self.player.world.cells[id].color2
+                self.game.gameLayer.sprites[id]._set_position(pos)
+                self.game.gameLayer.sprites[id]._set_scale(w/425.)
+            # if self.game.gameLayer.names_batch in self.game.gameLayer.get_children():
+            #     self.game.gameLayer.remove(self.game.gameLayer.names_batch)
+            # for s in self.game.gameLayer.sprites:
+            #     if s in self.game.gameLayer.get_children():
+            #         self.game.gameLayer.remove(s)
+            # names_batch = BatchNode()
+            # sprites = []
+            # for cell in sorted(self.player.world.cells.values(), reverse=True):
+            #     pos = self.game.gameLayer.world_to_screen_pos(cell.pos)
+            #     w = self.game.gameLayer.world_to_screen_size(cell.size)*2
+            #     #circles.append(Circle(pos.x, pos.y, width=w, color=(cell.color[0],cell.color[1],cell.color[2],1)))
+            #     img = 'cell.png'
+            #     if cell.is_virus:
+            #         img = 'virus.png'
+            #     elif cell.is_agitated:
+            #         img = 'agitated.png'
+            #     s = Sprite(resource.image(img),position=pos,color=cell.color2,scale=w/425.)
+            #     self.game.gameLayer.add(s)
+            #     sprites.append(s)
+            #     text.Label(cell.name, font_size=14, font_name='DejaVu Sans', x=pos.x, y=pos.y, color=(32, 32, 32, 255),
+            #            anchor_x='center', anchor_y='center', batch=names_batch.batch)
             maxmass = self.game.gameLayer.score
             for id in self.player.own_ids:
                 if self.player.world.cells[id].mass > maxmass:
@@ -206,9 +222,9 @@ class AgarClientProtocol(WebSocketClientProtocol):
             diff = int(self.game.gameLayer.screen[0]*.01)
             self.game.gameLayer.scoreSprite = Label("%d" % int(self.game.gameLayer.score), position=(diff, self.game.gameLayer.screen[1]-diff), font_name='DejaVu Sans', font_size=18, bold=True, color=(0, 0, 0, 128), anchor_x='left', anchor_y='center')
             self.game.gameLayer.add(self.game.gameLayer.scoreSprite)
-            self.game.gameLayer.sprites = sprites
-            self.game.gameLayer.names_batch = names_batch
-            self.game.gameLayer.add(self.game.gameLayer.names_batch)
+            # self.game.gameLayer.sprites = sprites
+            # self.game.gameLayer.names_batch = names_batch
+            # self.game.gameLayer.add(self.game.gameLayer.names_batch)
             #self.game.gameLayer.circles = circles
             self.game.gameLayer.send_mouse()
             # self.game.gameLayer.init()
@@ -217,6 +233,9 @@ class AgarClientProtocol(WebSocketClientProtocol):
             self.player.world.cells.clear()
             self.player.own_ids.clear()
             self.player.cells_changed()
+            for id in self.game.gameLayer.sprites:
+                self.game.gameLayer.remove(self.game.gameLayer.sprites[id])
+            self.game.gameLayer.sprites.clear()
         elif opcode == 32:
             id = b.read_uint()
             if not self.player.is_alive:  # respawned
@@ -225,6 +244,8 @@ class AgarClientProtocol(WebSocketClientProtocol):
             # server sends empty name, assumes we set it here
             if id not in self.player.world.cells:
                 self.player.world.create_cell(id)
+                self.game.gameLayer.sprites[id] = Sprite(resource.image("cell.png"))
+                self.game.gameLayer.add(self.game.gameLayer.sprites[id])
             # self.world.cells[cid].name = self.player.nick
             self.player.own_ids.add(id)
             self.player.cells_changed()
@@ -324,7 +345,7 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
         super(AgarLayer, self).__init__(255, 255, 255, 255, self.screen[0], self.screen[1])
         #self.position = ((self.screen[0]-self.screen[1])/2,0)
         self.circles = []
-        self.sprites = []
+        self.sprites = {}
         self.score = 0
         # self.leaders = []
         self.win_size = Vec(self.screen[0], self.screen[1])
@@ -350,12 +371,12 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
     #     border.append(Line((wr,wt),(wr,wb),stroke=5))
     #     self.border = border
 
-    def draw(self):
-        super(AgarLayer, self).draw()
-        for c in self.circles:
-            c.render()
-        # for b in self.border:
-        #     b.render()
+    # def draw(self):
+    #     super(AgarLayer, self).draw()
+    #     for c in self.circles:
+    #         c.render()
+    #     # for b in self.border:
+    #     #     b.render()
 
     def recalculate(self):
         #alloc = self.drawing_area.get_allocation()
