@@ -142,7 +142,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
                 if prey in self.player.world.cells:
                     #self.subscriber.on_cell_removed(cid=prey)
                     del self.player.world.cells[prey]
-                    self.game.gameLayer.remove(self.game.gameLayer.sprites[prey])
+                    self.game.gameLayer.sprite_batch.remove(self.game.gameLayer.sprites[prey])
                     del self.game.gameLayer.sprites[prey]
             while True:
                 id = b.read_uint()
@@ -171,7 +171,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
                     elif self.player.world.cells[id].is_agitated:
                         img = 'agitated.png'
                     self.game.gameLayer.sprites[id] = Sprite(resource.image(img))
-                    self.game.gameLayer.add(self.game.gameLayer.sprites[id])
+                    self.game.gameLayer.sprite_batch.add(self.game.gameLayer.sprites[id])
                 self.player.world.cells[id].update(cid=id, x=x, y=y, size=size, name=name, color=color, is_virus=virus, is_agitated=agitated)
             for i in range(0, b.read_uint()):
                 id = b.read_uint()
@@ -180,7 +180,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
                     del self.player.world.cells[id]
                     if id in self.player.own_ids:
                         self.player.own_ids.remove(id)
-                    self.game.gameLayer.remove(self.game.gameLayer.sprites[id])
+                    self.game.gameLayer.sprite_batch.remove(self.game.gameLayer.sprites[id])
                     del self.game.gameLayer.sprites[id]
             if self.player.is_alive:
                 self.player.cells_changed()
@@ -234,7 +234,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
             self.player.own_ids.clear()
             self.player.cells_changed()
             for id in self.game.gameLayer.sprites:
-                self.game.gameLayer.remove(self.game.gameLayer.sprites[id])
+                self.game.gameLayer.sprite_batch.remove(self.game.gameLayer.sprites[id])
             self.game.gameLayer.sprites.clear()
         elif opcode == 32:
             id = b.read_uint()
@@ -245,7 +245,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
             if id not in self.player.world.cells:
                 self.player.world.create_cell(id)
                 self.game.gameLayer.sprites[id] = Sprite(resource.image("cell.png"))
-                self.game.gameLayer.add(self.game.gameLayer.sprites[id])
+                self.game.gameLayer.sprite_batch.add(self.game.gameLayer.sprites[id])
             # self.world.cells[cid].name = self.player.nick
             self.player.own_ids.add(id)
             self.player.cells_changed()
@@ -356,6 +356,8 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
         self.movement_delta = Vec()
         self.names_batch = BatchNode()
         self.leaders_batch = BatchNode()
+        self.sprite_batch = BatchNode()
+        self.add(self.sprite_batch)
         self.scoreSprite = None
         self.proto = None
         # self.border = []
