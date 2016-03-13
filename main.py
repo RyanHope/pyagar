@@ -199,7 +199,8 @@ class AgarClientProtocol(WebSocketClientProtocol):
             self.game.gameLayer.score = maxmass
             if self.game.gameLayer.scoreSprite in self.game.gameLayer.get_children():
                 self.game.gameLayer.remove(self.game.gameLayer.scoreSprite)
-            self.game.gameLayer.scoreSprite = Label("%d" % int(self.game.gameLayer.score), position=(int(self.game.gameLayer.screen[0]*.01), int(self.game.gameLayer.screen[1]*.01)), font_name='DejaVu Sans', font_size=18, bold=True, color=(0, 0, 0, 255), anchor_x='left', anchor_y='bottom')
+            diff = int(self.game.gameLayer.screen[0]*.01)
+            self.game.gameLayer.scoreSprite = Label("%d" % int(self.game.gameLayer.score), position=(diff, self.game.gameLayer.screen[1]-diff), font_name='DejaVu Sans', font_size=18, bold=True, color=(0, 0, 0, 128), anchor_x='left', anchor_y='center')
             self.game.gameLayer.add(self.game.gameLayer.scoreSprite)
             self.game.gameLayer.sprites = sprites
             self.game.gameLayer.names_batch = names_batch
@@ -231,7 +232,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
             for i in range(0, b.read_uint()):
                 id, name = b.read_uint(), b.read_string16()
                 diff = self.game.gameLayer.screen[0] - int(self.game.gameLayer.screen[0]*.99)
-                text.Label("%d. %s" % (i+1,name), font_size=14, font_name='DejaVu Sans', x=self.game.gameLayer.screen[0]-diff, y=self.game.gameLayer.screen[1]-diff-i*17, color=(32, 32, 32, 255),
+                text.Label("%d. %s" % (i+1,name), font_size=14, font_name='DejaVu Sans', x=self.game.gameLayer.screen[0]-diff, y=self.game.gameLayer.screen[1]-diff-i*17, color=(0, 0, 0, 128),
                        anchor_x='right', anchor_y='center', batch=leaders_batch.batch)
                 leaderboard_names.append((id, name))
             if self.game.gameLayer.leaders_batch in self.game.gameLayer.get_children():
