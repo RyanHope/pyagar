@@ -204,10 +204,18 @@ class AgarClientProtocol(WebSocketClientProtocol):
             self.player.cells_changed()
             #self.subscriber.on_own_id(cid=id)
         elif opcode == 49:
+            leaders_batch = BatchNode()
             leaderboard_names = []
             for i in range(0, b.read_uint()):
                 id, name = b.read_uint(), b.read_string16()
+                diff = self.game.gameLayer.screen[0] - int(self.game.gameLayer.screen[0]*.99)
+                text.Label("%d. %s" % (i+1,name), font_size=14, x=self.game.gameLayer.screen[0]-diff, y=self.game.gameLayer.screen[1]-diff-i*17, color=(32, 32, 32, 255),
+                       anchor_x='right', anchor_y='center', batch=leaders_batch.batch)
                 leaderboard_names.append((id, name))
+            if self.game.gameLayer.leaders_batch in self.game.gameLayer.get_children():
+                self.game.gameLayer.remove(self.game.gameLayer.leaders_batch)
+            self.game.gameLayer.leaders_batch = leaders_batch
+            self.game.gameLayer.add(self.game.gameLayer.leaders_batch)
             #self.subscriber.on_leaderboard_names(leaderboard=leaderboard_names)
             self.player.world.leaderboard_names = leaderboard_names
             # self.game.gameLayer.leaders = []
@@ -297,6 +305,7 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
         self.mouse_pos = Vec(0, 0)
         self.movement_delta = Vec()
         self.names_batch = BatchNode()
+        self.leaders_batch = BatchNode()
         # self.border = []
 
     # def init(self):
@@ -422,7 +431,7 @@ if __name__ == '__main__':
         d.addBoth(cbShutdown)
 
     else:
-        d = agent.request('POST', 'http://m.agar.io/', Headers({'User-Agent': [NAME]}), StringProducer('US-Atlanta'))
+        d = agent.request('POST', 'http://m.agar.io/', Headers({'User-Agent': [NAME]}), StringProducer('EU-London'))
         d.addCallback(cbResponse, lambda x: agarWS(x, game), True)
 
     reactor.run()
