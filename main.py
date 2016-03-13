@@ -30,11 +30,13 @@ import pprint
 import json
 
 import pyglet
+from pyglet.window import key
 from cocos.director import director
 from cocos.layer import ColorLayer
-from scene import Scene
 
+from scene import Scene
 from primitives import Circle
+from handler import Handler
 
 from vec import Vec
 from world import Player
@@ -281,6 +283,11 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
     def world_to_screen_size(self, world_size):
         return world_size * self.screen_scale
 
+    def on_key_press( self, symbol, modifiers):
+        if symbol == key.Q and (modifiers & key.MOD_ACCEL):
+            reactor.callFromThread(reactor.stop)
+            return True
+
 class PyAgar(object):
     title = "PyAgar"
     def __init__(self):
@@ -293,6 +300,9 @@ class PyAgar(object):
         director.window.set_fullscreen(False)
         director.window.set_size(wnew, hnew)
         w.set_location((width-wnew)/2, (height-hnew)/2)
+
+        director.window.pop_handlers()
+        director.window.push_handlers(Handler())
 
         self.gameScene = Scene()
         self.gameLayer = AgarLayer()
