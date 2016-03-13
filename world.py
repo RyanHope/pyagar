@@ -13,6 +13,7 @@ class Cell(object):
         self.size = size
         self.mass = size ** 2 / 100.0
         self.name = getattr(self, 'name', name) or name
+        self.color2 = color
         self.color = tuple(map(lambda rgb: rgb / 255.0, color))
         self.is_virus = is_virus
         self.is_agitated = is_agitated

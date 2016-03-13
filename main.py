@@ -31,12 +31,13 @@ import json
 
 import pyglet
 from pyglet.window import key
-from pyglet import font, text
+from pyglet import font, text, resource
 
 from cocos.director import director
 from cocos.layer import ColorLayer
 from cocos.text import Label
 from cocos.batch import BatchNode
+from cocos.sprite import *
 
 from scene import Scene
 from primitives import Circle, Line
@@ -169,21 +170,32 @@ class AgarClientProtocol(WebSocketClientProtocol):
                         self.player.own_ids.remove(id)
             if self.player.is_alive:
                 self.player.cells_changed()
-            circles = []
             self.game.gameLayer.recalculate()
+            if self.game.gameLayer.names_batch in self.game.gameLayer.get_children():
+                self.game.gameLayer.remove(self.game.gameLayer.names_batch)
+            for s in self.game.gameLayer.sprites:
+                if s in self.game.gameLayer.get_children():
+                    self.game.gameLayer.remove(s)
             names_batch = BatchNode()
+            sprites = []
             for cell in sorted(self.player.world.cells.values(), reverse=True):
                 pos = self.game.gameLayer.world_to_screen_pos(cell.pos)
                 w = self.game.gameLayer.world_to_screen_size(cell.size)
-                #print((cell.pos.x,cell.pos.y),(pos.x,pos.y),cell.size,w)
-                circles.append(Circle(pos.x, pos.y, width=w, color=(cell.color[0],cell.color[1],cell.color[2],1)))
+                #circles.append(Circle(pos.x, pos.y, width=w, color=(cell.color[0],cell.color[1],cell.color[2],1)))
+                img = 'cell.png'
+                if cell.is_virus:
+                    img = 'virus.png'
+                elif cell.is_agitated:
+                    img = 'agitated.png'
+                s = Sprite(resource.image(img),position=pos,color=cell.color2,scale=w/425.)
+                self.game.gameLayer.add(s)
+                sprites.append(s)
                 text.Label(cell.name, font_size=14, x=pos.x, y=pos.y, color=(32, 32, 32, 255),
                        anchor_x='center', anchor_y='center', batch=names_batch.batch)
-            if self.game.gameLayer.names_batch in self.game.gameLayer.get_children():
-                self.game.gameLayer.remove(self.game.gameLayer.names_batch)
+            self.game.gameLayer.sprites = sprites
             self.game.gameLayer.names_batch = names_batch
             self.game.gameLayer.add(self.game.gameLayer.names_batch)
-            self.game.gameLayer.circles = circles
+            #self.game.gameLayer.circles = circles
             self.game.gameLayer.send_mouse()
             # self.game.gameLayer.init()
         elif opcode == 18:
@@ -297,6 +309,7 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
         super(AgarLayer, self).__init__(255, 255, 255, 255, self.screen[0], self.screen[1])
         #self.position = ((self.screen[0]-self.screen[1])/2,0)
         self.circles = []
+        self.sprites = []
         # self.leaders = []
         self.win_size = Vec(self.screen[0], self.screen[1])
         self.screen_center = self.win_size / 2
@@ -387,6 +400,10 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
 class PyAgar(object):
     title = "PyAgar"
     def __init__(self):
+
+        pyglet.resource.path.append('resources')
+        pyglet.resource.reindex()
+
         director.set_show_FPS(False)
         w = director.init(fullscreen=True, caption=self.title, visible=True, resizable=True)
 
