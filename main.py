@@ -33,7 +33,7 @@ import json
 
 import pyglet
 from pyglet.window import key
-from pyglet import font, text, resource
+from pyglet import font, text, resource, clock
 
 from cocos.director import director
 from cocos.layer import ColorLayer
@@ -189,7 +189,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
                     self.game.gameLayer.sprites[id] = Sprite(img)
                     self.game.gameLayer.sprite_batch.add(self.game.gameLayer.sprites[id])
                     if name != '':
-                        self.game.gameLayer.names[id] = Label(name, font_name='DejaVu Mono', font_size=14, bold=True, color=(255, 255, 255, 255), anchor_x='center', anchor_y='center')
+                        self.game.gameLayer.names[id] = Label(name, font_name='DejaVu Mono', font_size=6, bold=True, color=(255, 255, 255, 255), anchor_x='center', anchor_y='center')
                         self.game.gameLayer.add(self.game.gameLayer.names[id])
                 self.player.world.cells[id].update(cid=id, x=x, y=y, size=size, name=name, color=color, is_virus=virus, is_agitated=agitated)
             for i in range(0, b.read_uint()):
@@ -218,7 +218,12 @@ class AgarClientProtocol(WebSocketClientProtocol):
                     self.game.gameLayer.names[id].element._set_text(self.player.world.cells[id].name)
                     self.game.gameLayer.names[id]._set_x(pos.x)
                     self.game.gameLayer.names[id]._set_y(pos.y)
-                    #self.game.gameLayer.names[id].element._set_font_size(self.player.world.cells[id].size/16)
+                    # ns = int(6+math.log(self.player.world.cells[id].size*3))
+                    # d = ns - self.game.gameLayer.names[id].element._get_font_size()
+                    # if d > 1 or d < 0:
+                    #     self.game.gameLayer.names[id].element._set_font_size(ns)
+
+
                 # sz = self.player.world.cells[id].size/16
                 # if self.player.world.cells[id].name != '' and sz > 6:
                 #     text.Label(self.player.world.cells[id].name, font_size=sz, font_name='DejaVu Mono', x=pos.x, y=pos.y, color=(255, 255, 255, 255), anchor_x='center', anchor_y='center', batch=names_batch.batch)
@@ -236,7 +241,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
             diff = int(self.game.gameLayer.screen[1]*.01)
             self.game.gameLayer.scoreSprite = Label("%d" % int(self.game.gameLayer.score), position=(diff, self.game.gameLayer.screen[1]-diff), font_name='DejaVu Mono', font_size=18, bold=True, color=(0, 0, 0, 128), anchor_x='left', anchor_y='top')
             self.game.gameLayer.add(self.game.gameLayer.scoreSprite)
-            self.game.gameLayer.send_mouse()
+            #self.game.gameLayer.send_mouse()
 
         elif opcode == 17:
             x = b.read_float()
@@ -269,7 +274,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
                 self.player.world.create_cell(id)
                 self.game.gameLayer.sprites[id] = Sprite(self.game.gameLayer.img['cell'])
                 self.game.gameLayer.sprite_batch.add(self.game.gameLayer.sprites[id])
-                self.game.gameLayer.names[id] = self.game.gameLayer.names[id] = Label("", font_name='DejaVu Mono', font_size=14, bold=True, color=(255, 255, 255, 255), anchor_x='center', anchor_y='center')
+                self.game.gameLayer.names[id] = self.game.gameLayer.names[id] = Label("", font_name='DejaVu Mono', font_size=6, bold=True, color=(255, 255, 255, 255), anchor_x='center', anchor_y='center')
                 self.game.gameLayer.add(self.game.gameLayer.names[id])
             # self.world.cells[cid].name = self.player.nick
             self.player.own_ids.add(id)
@@ -460,11 +465,11 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
         if self.proto and self.proto.ingame:
             x, y = director.get_virtual_coordinates(x, y)
             if button == pyglet.window.mouse.MIDDLE:
-                self.send_mouse()
+                #self.send_mouse()
                 self.proto.send_shoot()
                 return True
             elif button == pyglet.window.mouse.RIGHT:
-                self.send_mouse()
+                #self.send_mouse()
                 self.proto.send_split()
                 return True
 
