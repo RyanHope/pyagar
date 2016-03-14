@@ -95,8 +95,8 @@ class AgarClientProtocol(WebSocketClientProtocol):
         self.player.world.reset()
         self.player.nick = "PuffTheMagic"
 
-        #self.send_respawn()
-        self.send_spectate()
+        self.send_respawn()
+        #self.send_spectate()
 
     def send_respawn(self):
         b = self.buffer
@@ -349,7 +349,7 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
 
     def __init__(self):
         self.screen = director.get_window_size()
-        super(AgarLayer, self).__init__(0, 0, 0, 255, self.screen[0], self.screen[1])
+        super(AgarLayer, self).__init__(255, 255, 255, 255, self.screen[0], self.screen[1])
         #self.position = ((self.screen[0]-self.screen[1])/2,0)
         self.img = {
             'cell': resource.image("cell.png"),
