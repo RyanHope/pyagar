@@ -140,6 +140,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
         #print ("===========",opcode,"===========")
         b = self.buffer
         self.setInGame(opcode)
+
         if opcode == 16:
             for i in range(0, b.read_short()):
                 hunter, prey = b.read_uint(), b.read_uint()
@@ -180,12 +181,15 @@ class AgarClientProtocol(WebSocketClientProtocol):
                     img = self.game.gameLayer.img['cell']
                     if virus:
                         img = self.game.gameLayer.img['virus']
+                        if agitated:
+                            print ("AGITAGED VIRUS!!!!!!!!!!!!!!!")
                     elif agitated:
                         img = self.game.gameLayer.img['agitated']
+                        print ("AGITAGED CELL?????????????????")
                     self.game.gameLayer.sprites[id] = Sprite(img)
                     self.game.gameLayer.sprite_batch.add(self.game.gameLayer.sprites[id])
                     if name != '':
-                        self.game.gameLayer.names[id] = Label(name, font_name='DejaVu Sans', font_size=14, bold=True, color=(255, 255, 255, 255), anchor_x='center', anchor_y='center')
+                        self.game.gameLayer.names[id] = Label(name, font_name='DejaVu Mono', font_size=14, bold=True, color=(255, 255, 255, 255), anchor_x='center', anchor_y='center')
                         self.game.gameLayer.add(self.game.gameLayer.names[id])
                 self.player.world.cells[id].update(cid=id, x=x, y=y, size=size, name=name, color=color, is_virus=virus, is_agitated=agitated)
             for i in range(0, b.read_uint()):
@@ -217,7 +221,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
                     #self.game.gameLayer.names[id].element._set_font_size(self.player.world.cells[id].size/16)
                 # sz = self.player.world.cells[id].size/16
                 # if self.player.world.cells[id].name != '' and sz > 6:
-                #     text.Label(self.player.world.cells[id].name, font_size=sz, font_name='DejaVu Sans', x=pos.x, y=pos.y, color=(255, 255, 255, 255), anchor_x='center', anchor_y='center', batch=names_batch.batch)
+                #     text.Label(self.player.world.cells[id].name, font_size=sz, font_name='DejaVu Mono', x=pos.x, y=pos.y, color=(255, 255, 255, 255), anchor_x='center', anchor_y='center', batch=names_batch.batch)
             # if self.game.gameLayer.names_batch in self.game.gameLayer.get_children():
             #     self.game.gameLayer.remove(self.game.gameLayer.names_batch)
             # self.game.gameLayer.names_batch = names_batch
@@ -230,9 +234,10 @@ class AgarClientProtocol(WebSocketClientProtocol):
             if self.game.gameLayer.scoreSprite in self.game.gameLayer.get_children():
                 self.game.gameLayer.remove(self.game.gameLayer.scoreSprite)
             diff = int(self.game.gameLayer.screen[1]*.01)
-            self.game.gameLayer.scoreSprite = Label("%d" % int(self.game.gameLayer.score), position=(diff, self.game.gameLayer.screen[1]-diff), font_name='DejaVu Sans', font_size=18, bold=True, color=(0, 0, 0, 128), anchor_x='left', anchor_y='top')
+            self.game.gameLayer.scoreSprite = Label("%d" % int(self.game.gameLayer.score), position=(diff, self.game.gameLayer.screen[1]-diff), font_name='DejaVu Mono', font_size=18, bold=True, color=(0, 0, 0, 128), anchor_x='left', anchor_y='top')
             self.game.gameLayer.add(self.game.gameLayer.scoreSprite)
             self.game.gameLayer.send_mouse()
+
         elif opcode == 17:
             x = b.read_float()
             y = b.read_float()
@@ -241,6 +246,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
             self.player.scale = scale
             # self.subscriber.on_spectate_update(
             #     pos=self.player.center, scale=scale)
+
         elif opcode == 18:
             #self.subscriber.on_clear_cells()
             self.player.world.cells.clear()
@@ -252,6 +258,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
             for id in self.game.gameLayer.names:
                 self.game.gameLayer.remove(self.game.gameLayer.names[id])
             self.game.gameLayer.names.clear()
+
         elif opcode == 32:
             id = b.read_uint()
             if not self.player.is_alive:  # respawned
@@ -262,26 +269,31 @@ class AgarClientProtocol(WebSocketClientProtocol):
                 self.player.world.create_cell(id)
                 self.game.gameLayer.sprites[id] = Sprite(self.game.gameLayer.img['cell'])
                 self.game.gameLayer.sprite_batch.add(self.game.gameLayer.sprites[id])
-                self.game.gameLayer.names[id] = self.game.gameLayer.names[id] = Label("", font_name='DejaVu Sans', font_size=14, bold=True, color=(255, 255, 255, 255), anchor_x='center', anchor_y='center')
+                self.game.gameLayer.names[id] = self.game.gameLayer.names[id] = Label("", font_name='DejaVu Mono', font_size=14, bold=True, color=(255, 255, 255, 255), anchor_x='center', anchor_y='center')
                 self.game.gameLayer.add(self.game.gameLayer.names[id])
             # self.world.cells[cid].name = self.player.nick
             self.player.own_ids.add(id)
             self.player.cells_changed()
             self.game.gameLayer.score = 0
             #self.subscriber.on_own_id(cid=id)
+
         elif opcode == 49:
             leaders_batch = BatchNode()
             leaderboard_names = []
+            diff = int(self.game.gameLayer.screen[1]*.01)
+            text.Label("Leaderboard", font_size=24, font_name='DejaVu Mono Bold', x=self.game.gameLayer.screen[0]-160, y=self.game.gameLayer.screen[1]-30, bold=True, color=(255, 255, 255, 255),
+                   anchor_x='center', anchor_y='top', width=150, batch=leaders_batch.batch)
             for i in range(0, b.read_uint()):
-                id, name = b.read_uint(), b.read_string16()
-                diff = int(self.game.gameLayer.screen[1]*.01)
-                text.Label("%d. %s" % (i+1,name), font_size=14, font_name='DejaVu Sans', x=self.game.gameLayer.screen[0]-diff, y=self.game.gameLayer.screen[1]-diff-i*20, color=(0, 0, 0, 128),
-                       anchor_x='right', anchor_y='top', batch=leaders_batch.batch)
+                id, name = b.read_uint(), b.read_string16()#.encode('utf-8','ignore')
+                if name == '':
+                    name = 'An unnamed cell'
+                text.Label("%d. %s" % (i+1,name[:20]), font_size=14, font_name='DejaVu Mono', x=self.game.gameLayer.screen[0]-160, y=self.game.gameLayer.screen[1]-40-30-i*22, color=(255, 255, 255, 255),
+                       anchor_x='center', anchor_y='top', width=150, batch=leaders_batch.batch)
                 leaderboard_names.append((id, name))
             if self.game.gameLayer.leaders_batch in self.game.gameLayer.get_children():
                 self.game.gameLayer.remove(self.game.gameLayer.leaders_batch)
             self.game.gameLayer.leaders_batch = leaders_batch
-            self.game.gameLayer.add(self.game.gameLayer.leaders_batch)
+            self.game.gameLayer.add(self.game.gameLayer.leaders_batch, z=100)
             #self.subscriber.on_leaderboard_names(leaderboard=leaderboard_names)
             self.player.world.leaderboard_names = leaderboard_names
 
@@ -297,6 +309,11 @@ class AgarClientProtocol(WebSocketClientProtocol):
                 game_mode = b.read_uint()
                 server_string = b.read_string16()
                 #self.subscriber.on_server_version(number=game_mode, text=server_version)
+
+        elif opcode == 240:
+            l =  b.read_uint()
+            s = b.read_string8()
+            print (240, l, s)
         else:
             raise Exception("UNHANDLED OPCODE!", opcode)
         if len(self.buffer.input) > 0:
@@ -374,6 +391,9 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
         self.add(self.sprite_batch)
         self.scoreSprite = None
         self.proto = None
+        leaderBG = ColorLayer(0,0,0,64,280,280)
+        leaderBG.position = (self.screen[0]-300,self.screen[1]-300)
+        self.add(leaderBG,z=50)
         # self.border = []
 
     # def init(self):
@@ -387,8 +407,9 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
     #     border.append(Line((wr,wt),(wr,wb),stroke=5))
     #     self.border = border
 
-    # def draw(self):
-    #     super(AgarLayer, self).draw()
+    def draw(self):
+        super(AgarLayer, self).draw()
+        if self.proto and self.proto.ingame: self.send_mouse()
     #     for c in self.circles:
     #         c.render()
     #     # for b in self.border:
@@ -433,7 +454,19 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
             self.mouse_pos = Vec(x, y)
             pos_world = self.screen_to_world_pos(self.mouse_pos)
             self.movement_delta = pos_world - self.proto.player.center
-            self.send_mouse()
+            #self.send_mouse()
+
+    def on_mouse_press(self, x, y, button, modifiers):
+        if self.proto and self.proto.ingame:
+            x, y = director.get_virtual_coordinates(x, y)
+            if button == pyglet.window.mouse.MIDDLE:
+                self.send_mouse()
+                self.proto.send_shoot()
+                return True
+            elif button == pyglet.window.mouse.RIGHT:
+                self.send_mouse()
+                self.proto.send_split()
+                return True
 
     def send_mouse(self):
         target = self.proto.player.center + self.movement_delta
@@ -447,11 +480,11 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
             self.proto.send_respawn()
             return True
         elif symbol == key.W and self.proto and self.proto.ingame:
-            self.send_mouse()
+            #self.send_mouse()
             self.proto.send_shoot()
             return True
         elif symbol == key.SPACE and self.proto and self.proto.ingame:
-            self.send_mouse()
+            #self.send_mouse()
             self.proto.send_split()
             return True
 
@@ -505,7 +538,7 @@ if __name__ == '__main__':
         d.addBoth(cbShutdown)
 
     else:
-        d = agent.request('POST', 'http://m.agar.io/', Headers({'User-Agent': [NAME]}), StringProducer('CN-China'))
+        d = agent.request('POST', 'http://m.agar.io/', Headers({'User-Agent': [NAME]}), StringProducer('US-Atlanta'))
         d.addCallback(cbResponse, lambda x: agarWS(x, game), True)
 
     reactor.run()
