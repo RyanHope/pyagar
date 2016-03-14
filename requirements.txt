@@ -1,0 +1,5 @@
+future
+twisted
+pyglet
+cocos2d
+git+git://github.com/RyanHope/AutobahnPython.git#egg=autobahn
