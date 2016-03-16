@@ -34,6 +34,7 @@ import json
 import pyglet
 from pyglet.window import key
 from pyglet import font, text, resource, clock
+from pyglet.image.codecs.png import PNGImageDecoder
 
 from cocos.director import director
 from cocos.layer import ColorLayer
@@ -101,7 +102,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
     def send_respawn(self):
         b = self.buffer
         b.write_byte(0)
-        b.write_string(self.player.nick.encode('utf-16'))
+        b.write_string(self.player.nick.encode('utf-16le'))
         b.flush_protocol(self)
 
     def send_spectate(self):
@@ -142,11 +143,14 @@ class AgarClientProtocol(WebSocketClientProtocol):
         self.setInGame(opcode)
 
         if opcode == 16:
+            preys = []
             for i in range(0, b.read_short()):
                 hunter, prey = b.read_uint(), b.read_uint()
+                preys.append(prey)
                 if prey in self.player.own_ids:
                     if len(self.player.own_ids) <= 1:
-                        self.send_spectate()
+                        #self.send_spectate()
+                        print "DEAD!!!!!!!!!!!!!!!!"
                         #self.subscriber.on_death()
                     self.player.own_ids.remove(prey)
                 if prey in self.player.world.cells:
@@ -210,18 +214,20 @@ class AgarClientProtocol(WebSocketClientProtocol):
             # names_batch = BatchNode()
             for id in self.player.world.cells:
                 pos = self.game.gameLayer.world_to_screen_pos(self.player.world.cells[id].pos)
-                w = self.game.gameLayer.world_to_screen_size(self.player.world.cells[id].size)*2
-                self.game.gameLayer.sprites[id].color = self.player.world.cells[id].color2
-                self.game.gameLayer.sprites[id]._set_position(pos)
-                self.game.gameLayer.sprites[id]._set_scale(w/425.)
-                if id in self.game.gameLayer.names:
-                    self.game.gameLayer.names[id].element._set_text(self.player.world.cells[id].name)
-                    self.game.gameLayer.names[id]._set_x(pos.x)
-                    self.game.gameLayer.names[id]._set_y(pos.y)
-                    # ns = int(6+math.log(self.player.world.cells[id].size*3))
-                    # d = ns - self.game.gameLayer.names[id].element._get_font_size()
-                    # if d > 1 or d < 0:
-                    #     self.game.gameLayer.names[id].element._set_font_size(ns)
+                w = int(self.game.gameLayer.world_to_screen_size(self.player.world.cells[id].size)*2)
+                if w != 0:
+                    #print ("SHIT!!", id, self.player.world.cells[id].name, id in preys)
+                    self.game.gameLayer.sprites[id].color = self.player.world.cells[id].color2
+                    self.game.gameLayer.sprites[id]._set_position(pos)
+                    self.game.gameLayer.sprites[id]._set_scale(w/425.)
+                    if id in self.game.gameLayer.names and self.game.gameLayer.names[id] != '':
+                        self.game.gameLayer.names[id].element._set_text(self.player.world.cells[id].name)
+                        self.game.gameLayer.names[id]._set_x(pos.x)
+                        self.game.gameLayer.names[id]._set_y(pos.y)
+                        ns = 2+int(w/(len(self.player.world.cells[id].name)+1))
+                        d = ns - self.game.gameLayer.names[id].element._get_font_size()
+                        if d > 1 or d < 0:
+                            self.game.gameLayer.names[id].element._set_font_size(ns)
 
 
                 # sz = self.player.world.cells[id].size/16
@@ -374,9 +380,9 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
         super(AgarLayer, self).__init__(255, 255, 255, 255, self.screen[0], self.screen[1])
         #self.position = ((self.screen[0]-self.screen[1])/2,0)
         self.img = {
-            'cell': resource.image("cell.png"),
-            'virus': resource.image("virus.png"),
-            'agitated': resource.image("agitated.png")
+            'cell': pyglet.image.load("resources/cell.png", decoder=PNGImageDecoder()),
+            'virus': pyglet.image.load("resources/virus.png", decoder=PNGImageDecoder()),
+            'agitated': pyglet.image.load("resources/agitated.png", decoder=PNGImageDecoder())
         }
         self.circles = []
         self.sprites = {}
@@ -497,9 +503,9 @@ class PyAgar(object):
     title = "PyAgar"
     def __init__(self):
 
-        pyglet.resource.path.append('resources')
-        pyglet.resource.reindex()
-        pyglet.resource.add_font('DejaVuSans.ttf')
+        # pyglet.resource.path.append('resources')
+        # pyglet.resource.reindex()
+        pyglet.font.add_file('resources/DejaVuSans.ttf')
 
         director.set_show_FPS(False)
         w = director.init(fullscreen=True, caption=self.title, visible=True, resizable=True)
