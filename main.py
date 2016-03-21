@@ -85,7 +85,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
         b.flush_protocol(self)
 
         b.write_byte(255)
-        b.write_uint(2200049715)
+        b.write_uint(154669603)
         b.flush_protocol(self)
 
         b.write_byte(80)
