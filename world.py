@@ -7,7 +7,7 @@ class Cell(object):
         self.update(*args, **kwargs)
 
     def update(self, cid=-1, x=0, y=0, size=0, name='',
-               color=(1, 0, 1), is_virus=False, is_agitated=False):
+               color=(1, 0, 1), is_virus=False, is_agitated=False, skin_url=''):
         self.cid = cid
         self.pos.set(x, y)
         self.size = size
@@ -17,6 +17,7 @@ class Cell(object):
         self.color = tuple(map(lambda rgb: rgb / 255.0, color))
         self.is_virus = is_virus
         self.is_agitated = is_agitated
+        self.skin_url = skin_url
 
     @property
     def is_food(self):
