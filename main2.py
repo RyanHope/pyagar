@@ -10,7 +10,6 @@ from twisted.internet.defer import succeed
 from twisted.web.client import Agent, readBody
 from twisted.web.http_headers import Headers
 from twisted.web.iweb import IBodyProducer
-from twisted.python import log
 from zope.interface import implements
 
 import struct, urllib
@@ -39,7 +38,7 @@ def cbBody(body, callback):
 
 def cbResponse(response, callback, printHeaders=False):
     if printHeaders:
-        log.msg(pprint.pformat(list(response.headers.getAllRawHeaders())))
+        print pprint.pformat(list(response.headers.getAllRawHeaders()))
     d = readBody(response)
     d.addCallback(cbBody, callback)
     return d
@@ -158,10 +157,10 @@ class AgarClientProtocol(WebSocketClientProtocol):
                     print ("SKIN URL FOUND !!!!!",skin_url)
                 else:
                     skin_url = ''
-                name = b.read_string16()
+                name = b.read_string16().encode('utf-8','ignore')
                 if id not in self.player.world.cells:
                     self.player.world.create_cell(id)
-                    self.game.glcells[id] = GLCell(id, name, virus)
+                    self.game.glcells[id] = GLCell(id, name, virus, self.game.fonts)
                 self.player.world.cells[id].update(cid=id, x=x, y=y, size=size, name=name, color=color, is_virus=virus, is_agitated=agitated, skin_url=skin_url)
             for i in range(0, b.read_uint()):
                 id = b.read_uint()
@@ -176,10 +175,22 @@ class AgarClientProtocol(WebSocketClientProtocol):
             for id in self.player.world.cells:
                 pos = self.game.world_to_screen_pos(self.player.world.cells[id].pos)
                 w = int(self.game.world_to_screen_size(self.player.world.cells[id].size)*2)
+                if w==0:
+                    raise("FUCK 0")
                 color = self.player.world.cells[id].color2
                 self.game.glcells[id].img.scale(w/425.)
                 self.game.glcells[id].img.colorize(color[0],color[1],color[2],255)
                 self.game.glcells[id].pos = pos
+                sz = int(w/8.0)
+                if sz < 12: sz = 12
+                if sz > 62: sz = 62
+                if sz != self.game.glcells[id].font:
+                    self.game.glcells[id].font = sz
+                    self.game.glcells[id].label.font = self.game.glcells[id].fonts[self.game.glcells[id].font]
+                    self.game.glcells[id].label_shadow.font = self.game.glcells[id].fonts[self.game.glcells[id].font]
+                    self.game.glcells[id].label.change_text(self.game.glcells[id].name)
+                    self.game.glcells[id].label_shadow.change_text(self.game.glcells[id].name)
+                # if self.player.world.cells[id].name != '' and sz > 6:
 
         elif opcode == 17:
             x = b.read_float()
@@ -189,10 +200,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
             self.player.scale = scale
 
         elif opcode == 18:
-            self.player.world.cells.clear()
-            self.player.own_ids.clear()
-            self.player.cells_changed()
-            self.game.glcells.clear()
+            self.clear_all()
 
         elif opcode == 32:
             id = b.read_uint()
@@ -201,7 +209,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
             # server sends empty name, assumes we set it here
             if id not in self.player.world.cells:
                 self.player.world.create_cell(id)
-                self.game.glcells[id] = GLCell(id, self.player.nick, False)
+                self.game.glcells[id] = GLCell(id, self.player.nick, False, self.game.fonts)
             else:
                 print "HUH?????????????"
             self.player.own_ids.add(id)
@@ -210,7 +218,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
         elif opcode == 49:
             leaderboard_names = []
             for i in range(0, b.read_uint()):
-                id, name = b.read_uint(), b.read_string16()#.encode('utf-8','ignore')
+                id, name = b.read_uint(), b.read_string16()
                 if name == '':
                     name = 'An unnamed cell'
                 leaderboard_names.append((id, name))
@@ -240,6 +248,12 @@ class AgarClientProtocol(WebSocketClientProtocol):
     def onClose(self, wasClean, code, reason):
         self.ingame = False
 
+    def clear_all(self):
+        self.player.world.cells.clear()
+        self.player.own_ids.clear()
+        self.player.cells_changed()
+        self.game.glcells.clear()
+
 class AgarClientFactory(WebSocketClientFactory):
 
     def buildProtocol(self, addr):
@@ -253,10 +267,8 @@ class AgarClientFactory(WebSocketClientFactory):
 
 def agarWS(data, game):
     iphost, token = data.split()
-    log.msg(token)
     ip, port = iphost.split(':')
     port = int(port)
-    log.msg("ws://%s:%d" % (ip, port))
     factory = AgarClientFactory("ws://%s:%d" % (ip, port), headers={'Origin':'http://agar.io'})
     factory.token = token
     factory.game = game
@@ -281,7 +293,7 @@ class StringProducer(object):
 
 class GLCell(object):
 
-    def __init__(self, cid, name, is_virus):
+    def __init__(self, cid, name, is_virus, fonts):
         self.pos = Vec(0, 0)
         self.cid = cid
         self.name = name
@@ -290,15 +302,22 @@ class GLCell(object):
             self.img = pygl2d.image.Image("resources/virus.png")
         else:
             self.img = pygl2d.image.Image("resources/cell.png")
+        self.font = 12
+        self.fonts = fonts
+        self.label_shadow = pygl2d.font.RenderText(self.name, [0, 0, 0], self.fonts[self.font])
+        self.label = pygl2d.font.RenderText(self.name, [255, 255, 255], self.fonts[self.font])
 
     def draw(self):
         x, y = self.pos
         self.img.draw([int(x-self.img.image.get_width()/2),int(y-self.img.image.get_height()/2)])
+        if len(self.name) > 0:
+            self.label_shadow.draw([int(x-self.label.ren.get_width()/2+1),int(y-self.label.ren.get_height()/2+1)])
+            self.label.draw([int(x-self.label.ren.get_width()/2),int(y-self.label.ren.get_height()/2)])
 
 class PyAgar(object):
 
     def __init__(self, args):
-        self.fps = 30
+        self.fps = 60
         pygame.display.init()
         pygame.font.init()
         mode_list = pygame.display.list_modes()
@@ -317,6 +336,11 @@ class PyAgar(object):
         self.mouse_pos = Vec(0, 0)
         self.movement_delta = Vec()
         self.proto = None
+        self.clock = pygame.time.Clock()
+        self.fonts = {}
+        for i in range(8,64):
+            self.fonts[i] = pygame.font.SysFont("Courier New", i, bold=True)
+        self.fps_display = pygl2d.font.RenderText("", [0, 0, 0], self.fonts[16])
 
     def run(self):
         self.lc = LoopingCall(self.refresh)
@@ -328,6 +352,7 @@ class PyAgar(object):
         reactor.stop()
 
     def refresh(self):
+        self.clock.tick()
         self.process_input()
         self.draw()
         if self.proto.ingame: self.send_mouse()
@@ -351,7 +376,9 @@ class PyAgar(object):
                     elif event.key == K_r:
                         self.proto.send_respawn()
                     elif event.key == K_s:
-                        self.proto.send_spectate()
+                        if not self.proto.player.is_alive:
+                            self.proto.clear_all()
+                            self.proto.send_spectate()
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     if event.button == 1:
                         self.proto.send_split()
@@ -367,6 +394,10 @@ class PyAgar(object):
         pygl2d.draw.rect([0, 0, self.screen_size[0], self.screen_size[1]], [255, 255, 255])
         for id in self.glcells:
             self.glcells[id].draw()
+
+        self.fps_display.change_text(str(int(self.clock.get_fps())) + " fps")
+        self.fps_display.draw([10, 10])
+
         pygl2d.display.end_draw()
 
     def recalculate(self):
@@ -402,8 +433,6 @@ if __name__ == '__main__':
     parser.add_argument('--get-info', dest='getInfo', action='store_true', help='get server information')
     parser.add_argument('--region', dest='region', default='US-Atlanta', help='set server region')
     args = parser.parse_args()
-
-    #log.startLogging(sys.stdout)
 
     game = PyAgar(args)
 
