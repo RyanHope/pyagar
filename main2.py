@@ -2,6 +2,8 @@
 
 from __future__ import division
 
+import re, exceptions
+
 import sys, argparse
 
 from twisted.internet import reactor
@@ -56,6 +58,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
         WebSocketClientProtocol.__init__(self, *args, **kwargs)
         self.player = Player()
         self.ingame = False
+        self.re_pattern = re.compile(u'[^\u0000-\uD7FF\uE000-\uFFFF]', re.UNICODE)
 
     def onConnect(self, response):
         self.buffer = Buffer()
@@ -138,6 +141,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
                     self.player.own_ids.remove(prey)
                 if prey in self.player.world.cells:
                     del self.player.world.cells[prey]
+                    self.game.glcell_pool.append(self.game.glcells[prey])
                     del self.game.glcells[prey]
             while True:
                 id = b.read_uint()
@@ -157,10 +161,14 @@ class AgarClientProtocol(WebSocketClientProtocol):
                     print ("SKIN URL FOUND !!!!!",skin_url)
                 else:
                     skin_url = ''
-                name = b.read_string16().encode('utf-8','ignore')
+                name = b.read_string16()
+                name = self.re_pattern.sub(u'\uFFFD', name)
                 if id not in self.player.world.cells:
                     self.player.world.create_cell(id)
-                    self.game.glcells[id] = GLCell(id, name, virus, self.game.fonts)
+                    self.game.glcells[id] = self.game.glcell_pool.pop()
+                    self.game.glcells[id].cid = id
+                    self.game.glcells[id].set_type(virus=virus)
+                    self.game.glcells[id].set_name(name)
                 self.player.world.cells[id].update(cid=id, x=x, y=y, size=size, name=name, color=color, is_virus=virus, is_agitated=agitated, skin_url=skin_url)
             for i in range(0, b.read_uint()):
                 id = b.read_uint()
@@ -168,29 +176,33 @@ class AgarClientProtocol(WebSocketClientProtocol):
                     del self.player.world.cells[id]
                     if id in self.player.own_ids:
                         self.player.own_ids.remove(id)
+                    self.game.glcell_pool.append(self.game.glcells[id])
                     del self.game.glcells[id]
             if self.player.is_alive:
                 self.player.cells_changed()
             self.game.recalculate()
             for id in self.player.world.cells:
                 pos = self.game.world_to_screen_pos(self.player.world.cells[id].pos)
-                w = int(self.game.world_to_screen_size(self.player.world.cells[id].size)*2)
-                if w==0:
-                    raise("FUCK 0")
-                color = self.player.world.cells[id].color2
-                self.game.glcells[id].img.scale(w/425.)
-                self.game.glcells[id].img.colorize(color[0],color[1],color[2],255)
-                self.game.glcells[id].pos = pos
-                sz = int(w/8.0)
-                if sz < 12: sz = 12
-                if sz > 62: sz = 62
-                if sz != self.game.glcells[id].font:
-                    self.game.glcells[id].font = sz
-                    self.game.glcells[id].label.font = self.game.glcells[id].fonts[self.game.glcells[id].font]
-                    self.game.glcells[id].label_shadow.font = self.game.glcells[id].fonts[self.game.glcells[id].font]
-                    self.game.glcells[id].label.change_text(self.game.glcells[id].name)
-                    self.game.glcells[id].label_shadow.change_text(self.game.glcells[id].name)
+                self.game.glcells[id].size = int(self.game.world_to_screen_size(self.player.world.cells[id].size)*2)
+                if self.game.glcells[id].size==0:
+                    print ("SIZE 0", self.player.world.cells[id].name, self.player.world.cells[id].size)
+                else:
+                    color = self.player.world.cells[id].color2
+                    self.game.glcells[id].img.scale(self.game.glcells[id].size/425.)
+                    self.game.glcells[id].img.colorize(color[0],color[1],color[2],255)
+                    self.game.glcells[id].pos = pos
+                    sz = int(self.game.glcells[id].size/8.0)
+                    if sz < 12: sz = 12
+                    if sz > 62: sz = 62
+                    if sz != self.game.glcells[id].font:
+                        self.game.glcells[id].font = sz
+                        self.game.glcells[id].label.font = self.game.glcells[id].fonts[self.game.glcells[id].font]
+                        self.game.glcells[id].label_shadow.font = self.game.glcells[id].fonts[self.game.glcells[id].font]
+                        self.game.glcells[id].label.change_text(self.game.glcells[id].name)
+                        self.game.glcells[id].label_shadow.change_text(self.game.glcells[id].name)
                 # if self.player.world.cells[id].name != '' and sz > 6:
+            self.game.update()
+            self.game.send_mouse()
 
         elif opcode == 17:
             x = b.read_float()
@@ -209,7 +221,10 @@ class AgarClientProtocol(WebSocketClientProtocol):
             # server sends empty name, assumes we set it here
             if id not in self.player.world.cells:
                 self.player.world.create_cell(id)
-                self.game.glcells[id] = GLCell(id, self.player.nick, False, self.game.fonts)
+                self.game.glcells[id] = self.game.glcell_pool.pop()
+                self.game.glcells[id].cid = id
+                self.game.glcells[id].set_type(virus=False)
+                self.game.glcells[id].set_name(self.player.nick)
             else:
                 print "HUH?????????????"
             self.player.own_ids.add(id)
@@ -293,26 +308,45 @@ class StringProducer(object):
 
 class GLCell(object):
 
-    def __init__(self, cid, name, is_virus, fonts):
-        self.pos = Vec(0, 0)
-        self.cid = cid
-        self.name = name
-        self.is_virus = is_virus
-        if self.is_virus:
-            self.img = pygl2d.image.Image("resources/virus.png")
-        else:
-            self.img = pygl2d.image.Image("resources/cell.png")
-        self.font = 12
+    def __init__(self, fonts, imgs):
         self.fonts = fonts
-        self.label_shadow = pygl2d.font.RenderText(self.name, [0, 0, 0], self.fonts[self.font])
-        self.label = pygl2d.font.RenderText(self.name, [255, 255, 255], self.fonts[self.font])
+        self.imgs = imgs
+        self.pos = Vec(0, 0)
+        self.cid = None
+        self.name = ' '
+        self.is_virus = -1
+        self.size = 0
+        self.font = 12
+        self.img = None
+        self.label_shadow = None
+        self.label = None
+
+    def set_name(self, name):
+        if name != self.name:
+            self.name = name
+            try:
+                self.label_shadow = pygl2d.font.RenderText(self.name, [0, 0, 0], self.fonts[self.font])
+                self.label = pygl2d.font.RenderText(self.name, [255, 255, 255], self.fonts[self.font])
+            except exceptions.UnicodeError:
+                print map(ord,self.name)
+                sys.exit(1)
+
+    def set_type(self, virus=False):
+        if virus != self.is_virus:
+            self.is_virus = virus
+            if self.is_virus:
+                self.img = pygl2d.image.Image(self.imgs["virus"])
+            else:
+                self.img = pygl2d.image.Image(self.imgs["cell"])
 
     def draw(self):
-        x, y = self.pos
-        self.img.draw([int(x-self.img.image.get_width()/2),int(y-self.img.image.get_height()/2)])
-        if len(self.name) > 0:
-            self.label_shadow.draw([int(x-self.label.ren.get_width()/2+1),int(y-self.label.ren.get_height()/2+1)])
-            self.label.draw([int(x-self.label.ren.get_width()/2),int(y-self.label.ren.get_height()/2)])
+        if self.size > 1:
+            x, y = self.pos
+            if self.img:
+                self.img.draw([int(x-self.img.image.get_width()/2),int(y-self.img.image.get_height()/2)])
+            if len(self.name) > 0 and self.label and self.label_shadow:
+                self.label_shadow.draw([int(x-self.label.ren.get_width()/2+1),int(y-self.label.ren.get_height()/2+1)])
+                self.label.draw([int(x-self.label.ren.get_width()/2),int(y-self.label.ren.get_height()/2)])
 
 class PyAgar(object):
 
@@ -323,11 +357,9 @@ class PyAgar(object):
         mode_list = pygame.display.list_modes()
         for mode in mode_list:
             print mode
-        self.screen_size = mode_list[2]
-        self.screen = pygame.display.set_mode(self.screen_size, pygame.DOUBLEBUF | pygame.OPENGL)
+        self.screen_size = mode_list[0]
+        self.screen = pygame.display.set_mode(self.screen_size, pygame.FULLSCREEN | pygame.DOUBLEBUF | pygame.OPENGL)
         pygl2d.display.init_gl()
-
-        self.glcells = {}
 
         self.win_size = Vec(self.screen_size[0], self.screen_size[1])
         self.screen_center = self.win_size / 2
@@ -342,20 +374,31 @@ class PyAgar(object):
             self.fonts[i] = pygame.font.SysFont("Courier New", i, bold=True)
         self.fps_display = pygl2d.font.RenderText("", [0, 0, 0], self.fonts[16])
 
+        self.pool_size = 2500
+        self.imgs= {
+            'cell':pygame.image.load("resources/cell.png"),
+            'virus':pygame.image.load("resources/virus.png")
+            }
+        self.glcell_pool = [GLCell(self.fonts, self.imgs) for _ in xrange(self.pool_size)]
+        self.glcells = {}
+
     def run(self):
         self.lc = LoopingCall(self.refresh)
         cleanupD = self.lc.start(1.0 / self.fps)
         cleanupD.addCallbacks(self.quit)
+
+    def update(self):
+        self.clock.tick()
+        self.fps_display.change_text(str(int(self.clock.get_fps())) + " fps")
+        self.draw()
+        print len(self.glcell_pool)
 
     def quit(self, lc):
         pygame.quit()
         reactor.stop()
 
     def refresh(self):
-        self.clock.tick()
         self.process_input()
-        self.draw()
-        if self.proto.ingame: self.send_mouse()
 
     def send_mouse(self):
         target = self.proto.player.center + self.movement_delta
@@ -394,10 +437,7 @@ class PyAgar(object):
         pygl2d.draw.rect([0, 0, self.screen_size[0], self.screen_size[1]], [255, 255, 255])
         for id in self.glcells:
             self.glcells[id].draw()
-
-        self.fps_display.change_text(str(int(self.clock.get_fps())) + " fps")
         self.fps_display.draw([10, 10])
-
         pygl2d.display.end_draw()
 
     def recalculate(self):
@@ -443,7 +483,7 @@ if __name__ == '__main__':
         d.addCallback(cbResponse, printInfo)
         d.addBoth(cbShutdown)
     else:
-        d = agent.request('POST', 'http://m.agar.io/', Headers({'User-Agent': [NAME]}), StringProducer('US-Atlanta'))
+        d = agent.request('POST', 'http://m.agar.io/', Headers({'User-Agent': [NAME]}), StringProducer('US-Atlanta:experimental'))
         d.addCallback(cbResponse, lambda x: agarWS(x, game), True)
 
     reactor.run()

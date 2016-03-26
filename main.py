@@ -2,6 +2,8 @@
 
 from __future__ import division
 
+import re
+
 import sys, os, platform
 os.environ['PYGLET_SHADOW_WINDOW']="0"
 
@@ -73,6 +75,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
         WebSocketClientProtocol.__init__(self, *args, **kwargs)
         self.player = Player()
         self.ingame = False
+        self.re_pattern = re.compile(u'[^\u0000-\uD7FF\uE000-\uFFFF]', re.UNICODE)
 
     def onConnect(self, response):
         self.buffer = Buffer()
@@ -179,6 +182,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
                 else:
                     skin_url = ''
                 name = b.read_string16()
+                name = self.re_pattern.sub(u'\uFFFD', name)
                 # self.subscriber.on_cell_info(cid=id, x=cx, y=cy, size=csize, name=cname, color=color, is_virus=is_virus, is_agitated=is_agitated)
                 if id not in self.player.world.cells:
                     self.player.world.create_cell(id)
