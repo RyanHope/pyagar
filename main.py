@@ -75,11 +75,12 @@ def printInfo(data):
 
 class AgarClientProtocol(WebSocketClientProtocol):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, spectate, *args, **kwargs):
         WebSocketClientProtocol.__init__(self, *args, **kwargs)
         self.player = Player()
         self.ingame = False
         self.re_pattern = re.compile(u'[^\u0000-\uD7FF\uE000-\uFFFF]', re.UNICODE)
+        self.spectate = spectate
 
     def onConnect(self, response):
         self.buffer = Buffer()
@@ -103,16 +104,20 @@ class AgarClientProtocol(WebSocketClientProtocol):
         self.player.world.reset()
         self.player.nick = "PuffTheMagic"
 
-        self.send_respawn()
-        #self.send_spectate()
+        if self.spectate:
+            self.send_spectate()
+        else:
+            self.send_respawn()
 
     def send_respawn(self):
+        self.spectate = False
         b = self.buffer
         b.write_byte(0)
         b.write_string(self.player.nick.encode('utf-16le'))
         b.flush_protocol(self)
 
     def send_spectate(self):
+        self.spectate = True
         b = self.buffer
         b.write_byte(1)
         b.flush_protocol(self)
@@ -187,7 +192,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
                 else:
                     skin_url = ''
                 name = b.read_string16()
-                name = self.re_pattern.sub(u'\uFFFD', name)
+                #name = self.re_pattern.sub(u'\uFFFD', name)
                 # self.subscriber.on_cell_info(cid=id, x=cx, y=cy, size=csize, name=cname, color=color, is_virus=is_virus, is_agitated=is_agitated)
                 if id not in self.player.world.cells:
                     self.player.world.create_cell(id)
@@ -301,23 +306,20 @@ class AgarClientProtocol(WebSocketClientProtocol):
             #self.subscriber.on_own_id(cid=id)
 
         elif opcode == 49:
-            leaders_batch = BatchNode()
             leaderboard_names = []
-            diff = int(self.game.gameLayer.screen[1]*.01)
-            text.Label("Leaderboard", font_size=24, font_name='DejaVu Mono Bold', x=self.game.gameLayer.screen[0]-160, y=self.game.gameLayer.screen[1]-30, bold=True, color=(255, 255, 255, 255),
-                   anchor_x='center', anchor_y='top', width=150, batch=leaders_batch.batch)
             for i in range(0, b.read_uint()):
                 id, name = b.read_uint(), b.read_string16()#.encode('utf-8','ignore')
                 if name == '':
                     name = 'An unnamed cell'
-                text.Label("%d. %s" % (i+1,name[:20]), font_size=14, font_name='DejaVu Mono', x=self.game.gameLayer.screen[0]-160, y=self.game.gameLayer.screen[1]-40-30-i*22, color=(255, 255, 255, 255),
-                       anchor_x='center', anchor_y='top', width=150, batch=leaders_batch.batch)
-                leaderboard_names.append((id, name))
-            if self.game.gameLayer.leaders_batch in self.game.gameLayer.get_children():
-                self.game.gameLayer.remove(self.game.gameLayer.leaders_batch)
-            self.game.gameLayer.leaders_batch = leaders_batch
-            self.game.gameLayer.add(self.game.gameLayer.leaders_batch, z=100)
-            #self.subscriber.on_leaderboard_names(leaderboard=leaderboard_names)
+                self.game.gameLayer.leaders[i].text = "%d. %s" % (i+1,name[:20])
+                # text.Label("%d. %s" % (i+1,name[:20]), font_size=14, font_name='DejaVu Mono', x=self.game.gameLayer.screen[0]-160, y=self.game.gameLayer.screen[1]-40-30-i*22, color=(255, 255, 255, 255),
+                #        anchor_x='center', anchor_y='top', width=150, batch=leaders_batch.batch)
+                # leaderboard_names.append((id, name))
+            # if self.game.gameLayer.leaders_batch in self.game.gameLayer.get_children():
+            #     self.game.gameLayer.remove(self.game.gameLayer.leaders_batch)
+            # self.game.gameLayer.leaders_batch = leaders_batch
+            # self.game.gameLayer.add(self.game.gameLayer.leaders_batch, z=100)
+            # #self.subscriber.on_leaderboard_names(leaderboard=leaderboard_names)
             self.player.world.leaderboard_names = leaderboard_names
 
         elif opcode == 64:
@@ -348,7 +350,7 @@ class AgarClientProtocol(WebSocketClientProtocol):
 class AgarClientFactory(WebSocketClientFactory):
 
     def buildProtocol(self, addr):
-        proto = AgarClientProtocol()
+        proto = AgarClientProtocol(self.game.args)
         proto.token = self.token
         proto.game = self.game
         self.game.gameLayer.proto = proto
@@ -445,6 +447,13 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
         # self.names_batch = BatchNode()
         # self.add(self.names_batch)
         self.leaders_batch = BatchNode()
+        diff = int(self.screen[1]*.01)
+        text.Label("Leaderboard", font_size=24, font_name='DejaVu Mono Bold', x=self.screen[0]-160, y=self.screen[1]-30, bold=True, color=(255, 255, 255, 255),
+               anchor_x='center', anchor_y='top', width=150, batch=self.leaders_batch.batch)
+        self.leaders = [text.Label("%d. An unnamed cell" % (i+1), font_size=14, font_name='DejaVu Mono', x=self.screen[0]-160, y=self.screen[1]-40-30-i*22, color=(255, 255, 255, 255),
+               anchor_x='center', anchor_y='top', width=150, batch=self.leaders_batch.batch) for i in xrange(10)]
+        self.add(self.leaders_batch, z=100)
+
         self.sprite_batch = BatchNode()
         self.add(self.sprite_batch)
         self.scoreSprite = None
@@ -551,7 +560,8 @@ class AgarLayer(ColorLayer, pyglet.event.EventDispatcher):
 
 class PyAgar(object):
     title = "PyAgar"
-    def __init__(self):
+    def __init__(self, args):
+        self.args = args
 
         pyglet.resource.path.append(os.path.join(dname,'resources'))
         pyglet.resource.reindex()
@@ -586,11 +596,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=NAME)
     parser.add_argument('--get-info', dest='getInfo', action='store_true', help='get server information')
     parser.add_argument('--region', dest='region', default='US-Atlanta', help='set server region')
+    parser.add_argument('--spectate', dest='spectate', action='store_true', help='start in spectate mode')
     args = parser.parse_args()
 
     # log.startLogging(sys.stdout)
-
-    game = PyAgar()
 
     agent = Agent(reactor)
 
@@ -600,7 +609,8 @@ if __name__ == '__main__':
         d.addBoth(cbShutdown)
 
     else:
-        d = agent.request('POST', 'http://m.agar.io/', Headers({'User-Agent': [NAME]}), StringProducer('US-Atlanta'))
+        game = PyAgar(args)
+        d = agent.request('POST', 'http://m.agar.io/', Headers({'User-Agent': [NAME]}), StringProducer('US-Atlanta:experimental'))
         d.addCallback(cbResponse, lambda x: agarWS(x, game), True)
 
     reactor.run()
