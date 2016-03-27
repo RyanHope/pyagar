@@ -238,8 +238,9 @@ class AgarClientProtocol(WebSocketClientProtocol):
                     if id in self.game.gameLayer.names:
                         self.game.gameLayer.names[id].position = pos
                         ns = 2+int(self.game.gameLayer.sprites[id].size/(len(self.player.world.cells[id].name)+1))
+                        if ns < 6: ns = 6
                         d = ns - self.game.gameLayer.names[id].element._get_font_size()
-                        if d > 1 or d < 0:
+                        if d > 1 or d < -1:
                             self.game.gameLayer.names[id].element._set_font_size(ns)
 
 
@@ -281,9 +282,10 @@ class AgarClientProtocol(WebSocketClientProtocol):
                 self.game.gameLayer.sprite_batch.remove(self.game.gameLayer.sprites[id].img)
                 self.game.gameLayer.sprite_pool.append(self.game.gameLayer.sprites[id])
             self.game.gameLayer.sprites.clear()
-            # for id in self.game.gameLayer.names:
-            #     self.game.gameLayer.remove(self.game.gameLayer.names[id])
-            # self.game.gameLayer.names.clear()
+            for id in self.game.gameLayer.names:
+                self.game.gameLayer.remove(self.game.gameLayer.names[id])
+                self.game.gameLayer.name_pool.append(self.game.gameLayer.names[id])
+            self.game.gameLayer.names.clear()
 
         elif opcode == 32:
             id = b.read_uint()
